@@ -1,0 +1,182 @@
+\documentclass{article}
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=1.5cm,right=1.5cm,marginparwidth=1.75cm]{geometry}
+\usepackage{amsmath}
+\usepackage{braket}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\setlength{\parindent}{0pt}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+\usepackage{listings}
+\lstset{
+    columns=fixed,       
+    numbers=left,
+    frame=none, 
+    backgroundcolor=\color[RGB]{245,245,244},
+    keywordstyle=\color[RGB]{40,40,255},
+    commentstyle=\it\color[RGB]{0,96,96},
+    stringstyle=\rmfamily\slshape\color[RGB]{128,0,0},
+    showstringspaces=false,
+}
+
+\title{Note}
+\author{Zihang}
+
+\begin{document}
+\maketitle
+\section{Atomic orbitals}
+    pyscf.pbc.gto.Cell.pbc\_eval\_ao("GTOval\_sph", position, kpts)\\
+    Hydrogen.pbc\_eval\_ao(position)
+    
+    \subsection{Gaussian type orbitals}
+        We use Gaussian type orbitals as basis functions.
+        The basis we used here, as well as in \href{https://pyscf.org/}{PYSCF},
+        is a little bit different from \href{https://www.cp2k.org/basis_sets}{CP2K}.
+        Take \href{https://github.com/pyscf/pyscf/blob/master/pyscf/pbc/gto/basis/gth-dzvp.dat}{gth-dzvp} as an example.
+        \begin{lstlisting}
+            H DZVP-GTH
+                2
+                1  0  0  4  2
+                        8.3744350009  -0.0283380461   0.0000000000
+                        1.8058681460  -0.1333810052   0.0000000000
+                        0.4852528328  -0.3995676063   0.0000000000
+                        0.1658236932  -0.5531027541   1.0000000000
+                2  1  1  1  1
+                        0.7270000000   1.0000000000
+        \end{lstlisting}
+        The file-format used in the .dat file
+
+        \begin{gather}
+            \chi_i(\textbf{r}) = R_i(r)\cdot Y_{l_i,m_i}(\theta,\phi) \notag \\
+            R_i(r) = r^{l_i}\sum_{j=1}^Nc_{ij}\exp(-\alpha_j\cdot r^2) \notag
+        \end{gather}
+
+        \begin{gather}
+            \chi_i(\textbf{r}) = \sqrt{4\pi}R_i(r)\cdot Y_{l_i,m_i}(\theta,\phi) \\
+            R_i(r) = r^{l_i}\sum_{j=1}^Nc_{ij}\left(\frac{2\alpha_{j}}{\pi}\right)^{\frac{3}{4}}\exp(-\alpha_{j}\cdot r^2)
+        \end{gather}
+
+    \subsection{PBC orbitals}
+    Crystalline orbitals Gaussian basis function $\phi$ is a lattice sum over local Gaussians $\chi$
+    \begin{equation}
+        \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\chi_i(\textbf{r}-\textbf{T})
+    \end{equation}
+    where $\textbf{k}$ is a vector in the first Brillouin zone and $\textbf{T}$ is a lattice translational vector.
+
+\section{PBC Hartree Fock}
+    Here we use index $\mu,\nu$ to specify atoms,
+    $p,q,r,s$ to specify orbitals of each atom,
+    $i,j,k,l$ to specify coeffcients of each orbital,
+    $c,d$ to specify cells.
+    Then the $p$ th pbc gaussian type orbital of $\mu$ th atom can be described as
+    \begin{equation}
+        \ket{\textbf{R}_{\mu,p}} = \sum_{i,c}c_{pi}\ket{\alpha_{i}\textbf{R}_{\mu,c}}
+    \end{equation}
+    Here are some commonly used shorthand symbols.
+    \begin{gather*}
+        \alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j} \\
+        \alpha_{ij,kl} = \frac{(\alpha_i+\alpha_j)(\alpha_k+\alpha_l)}{\alpha_i+\alpha_j+\alpha_k+\alpha_l} \\
+        \textbf{R}_{\mu i,\nu j,c} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,c}}{\alpha_i+\alpha_j}
+    \end{gather*}
+
+    \subsection{Integtals}
+        General integral on PBC basis is given by
+        \begin{align*}
+            A_{ij} &= \sum_{m,n}\int_0^T a(x)\chi_i(x+mT)\chi_j(x+nT)dx \\
+            &= \sum_{m,n}\int_{mT}^{(m+1)T} a(x'-mT)\chi_i(x')\chi_j[x'+(n-m)T]dx' \\
+            &= \sum_{m,n-m}\int_{mT}^{(m+1)T} a(x')\chi_i(x')\chi_j[x'+(n-m)T]dx' \\
+            &= \sum_{n'}\int_{-\infty}^{\infty} a(x')\chi_i(x')\chi_j(x'+n'T)dx'
+        \end{align*}
+
+        \subsubsection{Overlap}
+            The overlap matrix element is given by
+            \begin{equation}
+                O_{\mu p,\nu q} = \braket{\textbf{R}_{\mu p}|\textbf{R}_{\nu q}} 
+                = \sum_c\sum_{ij}c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
+                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+            \end{equation}
+            \begin{equation}
+                O_{\mu pi,\nu qj,c} = c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
+                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+            \end{equation}
+            \begin{equation}
+                O_{\mu p,\nu q} = \sum_c\sum_{ij}O_{\mu pi,\nu qj,c}
+            \end{equation}
+
+        \subsubsection{Kinetic}
+            The kinetic matrix element
+            \begin{equation}
+                T_{\mu p,\nu q} = \bra{\textbf{R}_{\mu p}}-\frac{1}{2}\nabla^2\ket{\textbf{R}_{\nu q}}
+                = \sum_c\sum_{ij}c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
+                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+                \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+            \end{equation}
+            \begin{equation}
+                T_{\mu p,\nu q} = \sum_c\sum_{ij}O_{\mu pi,\nu qj,c}
+                \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+            \end{equation}
+
+        \subsubsection{Potential}
+            The potential matrix element
+            \begin{equation}
+                V_{\mu p,\nu q,N} = \bra{\textbf{R}_{\mu p}}\sum_d\frac{1}{|r-R_{N,d}|}\ket{\textbf{R}_{\nu q}} 
+                = 2 \sum_{cd}\sum_{ij}O_{\mu pi,\nu qj,c}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}
+                F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{N,d}-\textbf{R}_{\mu i,\nu j,c})^2\right]
+            \end{equation}
+            \begin{equation}
+                V_{\mu p,\nu q} = \sum_{\textbf{G}\neq 0}\sum_N\sum_c\sum_{ij}V(\textbf{G})O_{\mu pi,\nu qj,c}
+                \exp\left[-i\textbf{G}\cdot(\textbf{R}_N-\textbf{R}_{\mu i,\nu j,c})\right]\exp\left[-\frac{G^2}{4(\alpha_i+\alpha_j)}\right]
+            \end{equation}
+            where
+            \begin{equation}
+                V(\textbf{G}) = \frac{4\pi}{L^3}\frac{1}{G^2}
+            \end{equation}
+
+        \subsubsection{Electron interaction}
+            The interaction matrix element
+            \begin{equation}
+                E_{p\mu q\nu,r\gamma s\eta} = \bra{\alpha_p\textbf{R}_{\mu}\alpha_q\textbf{R}_{\nu}}
+                \frac{1}{|r-r'|}\ket{\alpha_r\textbf{R}_{\gamma}\alpha_s\textbf{R}_{\eta}} 
+                = 2 O_{p\mu,r\gamma}O_{q\nu,s\eta}\sqrt{\frac{\alpha_{pr,qs}}{\pi}}
+                F_0\left[\alpha_{pr,qs}(\textbf{R}_{p\mu,r\gamma}-\textbf{R}_{q\nu,r\eta})^2\right]
+            \end{equation}
+            Where
+            \begin{equation}
+                F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1
+            \end{equation}
+            
+        \subsubsection{Hcore}
+            Hamiltonian matrix element without interaction
+            \begin{equation}
+                h_{p\mu,q\nu} = T_{p\mu,q\nu} - \sum_{N}V_{p\mu,q\nu,N}
+            \end{equation}
+        \subsubsection{Fock matrix}
+            Fock operator matrix element
+            \begin{equation}
+                F_{p\mu,q\nu} = \bra{\alpha_p\textbf{R}_{\mu}}\hat{H}\ket{\alpha_q\textbf{R}_{\nu}} 
+                = h_{p\mu,q\nu} + \sum_{k}\sum_{r\gamma,s\eta} 
+                (2E_{p\mu r\gamma,q\nu s\eta}-E_{p\mu r\gamma,s\eta q\nu})C_{r\gamma,k}^*C_{s\eta,k}
+            \end{equation}
+
+    \subsection{Solution of Roothaan equation}
+        Roothaan equation
+        \begin{equation}
+            \textbf{FC}_k = \epsilon_k\textbf{SC}_k
+        \end{equation}
+        Energy
+        \begin{equation}
+            E_g = 2\sum_k\sum_{p\mu,q\nu}h_{p\mu,q\nu}C_{p\mu,k}^*C_{q\nu,k}+
+            \sum_k\sum_{p\mu,q\nu,r\gamma,s\eta}(2E_{p\mu r\gamma,q\nu s\eta}-
+            E_{p\mu r\gamma,s\eta q\nu})C_{p\mu,k}^*C_{q\nu,k}C_{r\gamma,k}^*C_{s\eta,k}
+        \end{equation}
+        
+\section{Molecule orbitals}
+
+\section{Wave function}
+
+\section{Density}
+
+\section{Gradient logpsi}
+
+\section{Laplacian logpsi}
+
+\end{document}
