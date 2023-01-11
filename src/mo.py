@@ -43,15 +43,14 @@ def make_hf(n, L, basis):
         assert xp.shape[0] == n
 
         # overlap
-        Rnc = xp[:, None, :] + lattice[None, :, :]
-        Rmnc = Rnc[:, None, :, :] - xp[None, :, None, :]
+        Rmnc = jnp.sum(jnp.square(xp[:, None, None, :] - xp[None, :, None, :] + lattice[None, None, :, :]), axis=3)
         _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmnc,kc->kmpinqjc', coeff, coeff, jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
-            jnp.exp(-jnp.einsum('ij,mnc->ijmnc', alpha2, jnp.square(jnp.linalg.norm(Rmnc, axis=3)))), jnp.exp(1j*kpts.dot(lattice.T)))
+            jnp.exp(-jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), jnp.exp(1j*kpts.dot(lattice.T)))
         ovlp = jnp.reshape(jnp.einsum('kmpinqjc->kmpnq', _ovlp), (dim_mat, dim_mat))
 
         # kinetic
         K = jnp.reshape(jnp.einsum('kmpinqjc,ij,ijmnc->kmpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, 
-            jnp.square(jnp.linalg.norm(Rmnc, axis=3)))), (dim_mat, dim_mat))
+            Rmnc)), (dim_mat, dim_mat))
 
         # potential
         grid = jnp.arange(n_grid) # (n_grid, ), nx = ny = nz = n_grid
