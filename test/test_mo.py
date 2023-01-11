@@ -47,8 +47,6 @@ def test_mo():
     L = (4/3*jnp.pi*n)**(1/3)*rs
     key = jax.random.PRNGKey(42)
     xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
-    key = jax.random.PRNGKey(43)
-    xe = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     # energy test
     hf = make_hf(n, L, basis)
@@ -57,4 +55,9 @@ def test_mo():
 
     print("E:\n", hy_E, "\npyscf E:\n", pyscf_E)
     assert np.allclose(hy_E, pyscf_E, rtol=rtol)
+
+    # jit, vmap, grad test
+    jax.jit(jax.grad(hf))(xp)
+    xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+    jax.vmap(hf)(xp2)
 
