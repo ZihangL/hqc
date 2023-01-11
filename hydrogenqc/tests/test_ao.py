@@ -1,6 +1,6 @@
 from config import *
 from pyscf.pbc import gto
-from ao	import gen_lattice, make_ao
+from hydrogenqc.ao import gen_lattice, make_ao
 
 def pyscf_eval_ao(L, xp, xe, basis):
     p = xp.shape[0]

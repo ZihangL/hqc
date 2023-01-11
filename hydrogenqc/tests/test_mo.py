@@ -1,5 +1,5 @@
 from config import *
-from mo import make_hf
+from hydrogenqc.mo import make_hf
 from pyscf.pbc import gto, scf
 
 def zerovee(L, xp, basis):

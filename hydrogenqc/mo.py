@@ -2,7 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 
-from ao import gen_lattice, make_ao
+from hydrogenqc.ao import gen_lattice, make_ao
 
 Ry = 2
 rcut = 18

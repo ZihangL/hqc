@@ -23,7 +23,6 @@ setup(
     author='lzh',
     author_email='lzh@iphy.ac.cn',
     # Contained modules and scripts.
-    scripts=['bin/ferminet'],
     packages=find_packages(),
     install_requires=REQUIRED_PACKAGES,
     extras_require={'testing': ['pytest']},
