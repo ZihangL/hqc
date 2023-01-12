@@ -5,7 +5,6 @@ import jax.numpy as jnp
 from hydrogenqc.ao import gen_lattice, make_ao
 
 Ry = 2
-rcut = 18
 n_grid = 30
 const = (2 / jnp.pi)**0.75
 coeff_gthszv = jnp.array([[8.3744350009, -0.0283380461],
@@ -39,7 +38,33 @@ def make_hf(n, L, basis):
     pro_alpha = jnp.einsum('i,j->ij', alpha, alpha)  # (4, 4)
     alpha2 = pro_alpha / sum_alpha  # (4, 4)
 
-    def hf(xp):
+    # Rmesh
+    grid = jnp.arange(n_grid) # (n_grid, ), nx = ny = nz = n_grid
+    mesh = jnp.array(jnp.meshgrid(*( [grid]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
+    Rmesh = mesh.dot(cell.T)*L/n_grid # (nx, ny, nz, 3)
+    
+    # Gmesh
+    Gmesh = mesh.dot(jnp.linalg.inv(cell))*2*jnp.pi/L # (nx, ny, nz, 3), range: (0, n_grid*2*pi/L)
+    shift = jnp.append(jnp.zeros(n_grid-n_grid//2), jnp.ones(n_grid//2))  # (n_grid, ), (0000...1111...)
+    shift3 = jnp.array(jnp.meshgrid(*( [shift]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
+    Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
+    Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
+
+    def vep_int(xp):
+        phi = jax.lax.map(lambda xe: ao(xp, xe), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
+        #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
+        
+        SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
+        Gnorm = jnp.linalg.norm(Gmesh, axis=3) # (nx, ny, nz)
+        VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / jnp.square(Gnorm) # (nx, ny, nz)
+        VG = VG.at[0,0,0].set(0)
+        vlocG = -SI * VG # (nx, ny, nz)
+
+        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG) # (nx, ny, nz)
+        vlocR = jnp.reshape(vlocR, -1) # (nx*ny*nz)
+        return jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+
+    def hf(xp, use_remat=False):
         assert xp.shape[0] == n
 
         # overlap
@@ -49,33 +74,13 @@ def make_hf(n, L, basis):
         ovlp = jnp.reshape(jnp.einsum('kmpinqjc->kmpnq', _ovlp), (dim_mat, dim_mat))
 
         # kinetic
-        K = jnp.reshape(jnp.einsum('kmpinqjc,ij,ijmnc->kmpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, 
-            Rmnc)), (dim_mat, dim_mat))
+        K = jnp.reshape(jnp.einsum('kmpinqjc,ij,ijmnc->kmpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
 
         # potential
-        grid = jnp.arange(n_grid) # (n_grid, ), nx = ny = nz = n_grid
-        mesh = jnp.array(jnp.meshgrid(*( [grid]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
-
-        Rmesh = mesh.dot(cell.T)*L/n_grid # (nx, ny, nz, 3)
-        def _body_fun(_, xe):
-             return _, ao(xp, xe)
-        _, phi = jax.lax.scan(_body_fun, None, Rmesh.reshape(n_grid*n_grid, n_grid, 3))  
-        phi = phi.reshape(n_grid, n_grid, n_grid, -1)
-        
-        Gmesh = mesh.dot(jnp.linalg.inv(cell))*2*jnp.pi/L # (nx, ny, nz, 3), range: (0, n_grid*2*pi/L)
-        shift = jnp.append(jnp.zeros(n_grid-n_grid//2), jnp.ones(n_grid//2))  # (n_grid, ), (0000...1111...)
-        shift3 = jnp.array(jnp.meshgrid(*( [shift]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
-        Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
-        Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
-
-        SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
-        Gnorm = jnp.linalg.norm(Gmesh, axis=3) # (nx, ny, nz)
-        VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / jnp.square(Gnorm) # (nx, ny, nz)
-        VG = VG.at[0,0,0].set(0)
-        vlocG = -SI * VG # (nx, ny, nz)
-
-        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG) # (nx, ny, nz)
-        V = jnp.einsum('xyzm,xyz,xyzn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3
+        if use_remat:
+            V = jax.remat(vep_int)(xp)
+        else:
+            V = vep_int(xp)
 
         # core Hamiltonian
         hcore = K + V
@@ -104,8 +109,11 @@ if __name__=='__main__':
     x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
     
     hf = make_hf(n, L , 'gth-szv')
-    # f = jax.jit(jax.grad(hf))(x)
-    # print (f)
+    f = jax.jit(jax.grad(hf))(x)
+    print (f)
 
     x = jnp.concatenate([x, x]).reshape(2, n, dim)
     print (jax.vmap(hf)(x))
+
+    import resource
+    print(f"{1e-3 * resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}MB")
