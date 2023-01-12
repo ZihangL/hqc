@@ -30,7 +30,7 @@ def test_ao():
 	# pyscf benchmark
 	pyscf_ao = pyscf_eval_ao(L, xp, xe, basis)
 	lattice = gen_lattice(cell, L, rcut=30)
-	eval_ao = make_ao(lattice, basis)
+	eval_ao = jax.vmap(make_ao(lattice, basis), (None, 0), 0)
 	ao = eval_ao(xp, xe)
 	assert np.allclose(pyscf_ao, ao)
 
