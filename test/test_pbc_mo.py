@@ -1,8 +1,9 @@
 from config import *
-from hydrogenqc.mo import make_hf
 from pyscf.pbc import gto, scf
+from hyqc.pbc.mo import make_hf
 
 def zerovee(L, xp, basis):
+
     """
         hartree fock without Vee pyscf benchmark.
 

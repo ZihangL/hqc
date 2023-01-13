@@ -12,11 +12,13 @@ REQUIRED_PACKAGES = [
 
 def hydrogenqc_test_suite():
     test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('hydrogenqc/tests', pattern='*_test.py')
+    test_suite = test_loader.discover('./test', pattern='test_*.py')
     return test_suite
 
+print(find_packages())
+
 setup(
-    name='hydrogenqc',
+    name='hyqc',
     version='0.0.1',
     description='Quantum chemistry calculations in Hydrogen system.',
     url='https://code.itp.ac.cn/lzh/hydrogen-qc',

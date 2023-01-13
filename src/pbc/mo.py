@@ -1,8 +1,7 @@
 import jax
 import numpy as np
 import jax.numpy as jnp
-
-from hydrogenqc.ao import gen_lattice, make_ao
+from hyqc.pbc.ao import gen_lattice, make_ao
 
 Ry = 2
 n_grid = 30
