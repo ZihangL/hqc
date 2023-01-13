@@ -39,7 +39,7 @@ def zerovee(L, xp, basis):
     c2 = kmf.mo_coeff[0]
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
-def test_mo():
+def test_pbc_mo():
     rtol = 1e-4
     basis = "gth-szv"
     n, dim = 4, 3

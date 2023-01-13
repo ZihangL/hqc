@@ -1,23 +1,30 @@
+import jax
 import numpy as np
 import jax.numpy as jnp
 
 Ry = 2
-coeff_sto3g = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
-                          [1.8058681460, -0.1333810052, 0.0000000000],
-                          [0.4852528328, -0.3995676063, 0.0000000000],
-                          [0.1658236932, -0.5531027541, 1.0000000000]])
-coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
-                          [1.8058681460, -0.1333810052, 0.0000000000],
-                          [0.4852528328, -0.3995676063, 0.0000000000],
-                          [0.1658236932, -0.5531027541, 1.0000000000]])
+delta = 1e-8
+coeff_sto3g = jnp.array([[3.42525091, 0.15432897],
+                        [0.62391373, 0.53532814],
+                        [0.16885540, 0.44463454]])
+coeff_sto6g = jnp.array([[35.52322122, 0.00916359628],
+                        [6.513143725, 0.04936149294],
+                        [1.822142904, 0.16853830490],
+                        [0.625955266, 0.37056279970],
+                        [0.243076747, 0.41649152980],
+                        [0.100112428, 0.13033408410]])
 
-def make_hf(basis=gth_dzv):
+def make_hf(basis='sto3g'):
     n = xp.shape[0]
-    dim_mat = 2 * n
+    dim_mat = 1 * n
     
     # coefficients of the basis
-    alpha = coeff_gthdzv[:, 0]  # (4,)
-    coeff = coeff_gthdzv[:, 1:3].T  # (2, 4)
+    if basis == 'sto3g':
+        alpha = coeff_sto3g[:, 0]  # (4,)
+        coeff = coeff_sto3g[:, 1:2].T  # (2, 4)
+    else if basis == 'sto6g':
+        alpha = coeff_sto6g[:, 0]  # (4,)
+        coeff = coeff_sto6g[:, 1:2].T  # (2, 4)
     
     # intermediate varaibles
     sum_alpha = alpha[:, None] + alpha[None, :]  # (4, 4)
@@ -26,23 +33,22 @@ def make_hf(basis=gth_dzv):
      
     # erf function
     def f0(x):
-        return jnp.erf(x)/x
+        x += delta
+        return jax.lax.erf(x)/x
 
     def hf(xp):
         # overlap
         Rmn = jnp.sum(jnp.square(xp[:, None, :] - xp[None, :, :]), axis=2) # (n, n)
-        _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmn->mpinqj', coeff, coeff, 
-                jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
+        _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmn->mpinqj', coeff, coeff, jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
                 jnp.exp(-jnp.einsum('ij,mn->ijmn', alpha2, Rmn)))
-        ovlp = jnp.reshape(jnp.einsum('mpinqj->mpnq', ovlp), (dim_mat, dim_mat))
+        ovlp = jnp.reshape(jnp.einsum('mpinqj->mpnq', _ovlp), (dim_mat, dim_mat))
 
         # kinetic
-        K = jnp.reshape(jnp.einsum('mpinqj,ij,ijmn->mpnq', _ovlp, 
-                alpha2, 3-2*jnp.einsum('ij,mn->ijmn', alpha2, Rmn)), (dim_mat, dim_mat))
+        K = jnp.reshape(jnp.einsum('mpinqj,ij,ijmn->mpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mn->ijmn', alpha2, Rmn)), (dim_mat, dim_mat))
         
         # potential
         rminj = (xp[:,None,None,None,:]*alpha[None,:,None,None,None]+xp[None,None,:,None,:]*alpha[None,None,None,:,None])/sum_alpha[None, :, None, :, None]
-        x = jnp.einsum('ij,vminj->vminj', jnp.sqrt(sum_alpha), jnp.linalg.norm(xp[:,None,None,None,None,:]-rminj[None,...], axis=5)
+        x = jnp.einsum('ij,vminj->vminj', jnp.sqrt(sum_alpha), jnp.linalg.norm(xp[:,None,None,None,None,:]-rminj[None,...], axis=5))
         V = -jnp.reshape(jnp.einsum('mpinqj,ij,vminj->mpnq', _ovlp, jnp.sqrt(sum_alpha), f0(x)), (dim_mat, dim_mat))
 
         # core Hamiltonian
@@ -59,27 +65,23 @@ def make_hf(basis=gth_dzv):
     
     return hf
 
-if name == "main":
-    from pyscf import scf
-    from zerovee import zerovee
+if __name__ == "__main__":
+    from pyscf import gto, scf
     
-    n, dim = 4, 3
-    L, d = 10.0, 1.4
-    center = np.array([L/2, L/2, L/2])
-    offset = np.array([[d/2, 0., 0.],
-                    [-d/2, 0., 0.]])
-    xp = center + offset
+    d = 1.4
+    xp = jnp.array([[0,0,0],[d,0,0]])
 
-    pyscfhf = zerovee(L, xp)
-    pyscfovlp = pyscfhf.kmf.getovlp()[0].real
-    pyscfK = scf.hf.gett(pyscfhf.cell, kpt=pyscfhf.kpts)[0].real
-    pyscfVep = scf.hf.getpp(pyscfhf.cell, kpt=pyscfhf.kpts[0]).real
-    pyscfE = pyscfhf.E()
+    hf = make_hf()
+    print(hf(xp))
 
-    hf = hydrogen(L, xp)
-    hfovlp = hf.overlap()
-    hfK = hf.kinetic()
-    hfVep = hf.potential()
-    E = hf.kernel()+pyscfhf.Vpp()
-
-
+    mol = gto.Mole()
+    mol.unit = 'B'
+    mol.atom = [['H', (0,0,0)], ['H', (d,0,0)]]
+    mol.basis = 'sto3g'
+    mol.build()
+    mf = scf.RHF(mol)
+    mf.verbose = 0
+    mf.max_cycle = 1
+    mf.get_veff = lambda *args: np.zeros(mf.get_hcore().shape)
+    mf.kernel()
+    print(Ry*(mf.e_tot-mf.energy_nuc()))

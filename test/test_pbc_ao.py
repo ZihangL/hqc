@@ -16,7 +16,7 @@ def pyscf_eval_ao(L, xp, xe, basis):
     ao_value = cell.pbc_eval_ao("GTOval_sph", xe, kpts=kpts)[0]
     return ao_value
 
-def test_ao():
+def test_pbc_ao():
 	basis = 'gth-szv'
 	n, dim = 14, 3
 	rs = 1.25
