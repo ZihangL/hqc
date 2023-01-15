@@ -1,6 +1,7 @@
 import jax
 import numpy as np
 import jax.numpy as jnp
+from ao import make_ao
 
 Ry = 2
 delta = 1e-8
@@ -16,13 +17,14 @@ coeff_sto6g = jnp.array([[35.52322122, 0.00916359628],
 
 def make_hf(basis='sto3g'):
     n = xp.shape[0]
+    n_up = n_dn = n//2
     dim_mat = 1 * n
     
     # coefficients of the basis
     if basis == 'sto3g':
         alpha = coeff_sto3g[:, 0]  # (4,)
         coeff = coeff_sto3g[:, 1:2].T  # (2, 4)
-    else if basis == 'sto6g':
+    elif basis == 'sto6g':
         alpha = coeff_sto6g[:, 0]  # (4,)
         coeff = coeff_sto6g[:, 1:2].T  # (2, 4)
     
@@ -30,10 +32,12 @@ def make_hf(basis='sto3g'):
     sum_alpha = alpha[:, None] + alpha[None, :]  # (4, 4)
     pro_alpha = jnp.einsum('i,j->ij', alpha, alpha)  # (4, 4)
     alpha2 = pro_alpha / sum_alpha  # (4, 4)
+
+    ao = make_ao(basis)
      
     # erf function
     def f0(x):
-        x += delta
+        x += delta # should be better
         return jax.lax.erf(x)/x
 
     def hf(xp):
@@ -58,10 +62,25 @@ def make_hf(basis='sto3g'):
         w, u = jnp.linalg.eigh(ovlp)
         v = jnp.dot(u, np.diag(w**(-0.5)))
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), hcore, v)
-        w1, _ = jnp.linalg.eigh(f1)
+        w1, mo_coeff = jnp.linalg.eigh(f1) # (n_mo), (n_ao, n_mo)
         e = 2 * jnp.sum(w1[0:n//2])
 
-        return Ry * e # this is without vpp
+        # molecular orbital coefficients
+        mo_up, mo_dn = mo_coeff[..., 0:n_up], mo_coeff[..., 0:n_dn] # (n_ao, n_up), (n_ao, n_dn)
+
+        def logpsi(xe):
+            ao_all = ao(xe) # (n, n_ao)
+            ao_up = ao_all[:n_up] # (n_up, n_ao)
+            ao_dn = ao_all[n_dn:] # (n_dn, n_ao)
+            slater_up = jnp.dot(ao_up, mo_up) # (n_up, n_up)
+            slater_dn = jnp.dot(ao_dn, mo_dn) # (n_dn, n_dn)
+            sign_up, logabsdet_up = jnp.linalg.slogdet(slater_up)
+            sign_dn, logabsdet_dn = jnp.linalg.slogdet(slater_dn)
+            sign = sign_up * sign_dn
+            logabsdet = logabsdet_up + logabsdet_dn
+            return jnp.log(sign) + logabsdet
+
+        return Ry * e, logpsi # this E is without vpp
     
     return hf
 
