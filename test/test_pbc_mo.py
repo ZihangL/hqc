@@ -1,6 +1,6 @@
 from config import *
 from pyscf.pbc import gto, scf
-from hyqc.pbc.mo import make_hf
+from hqc.pbc.mo import make_hf
 
 def zerovee(L, xp, basis):
 

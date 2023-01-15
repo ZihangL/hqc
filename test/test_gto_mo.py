@@ -1,6 +1,6 @@
 from config import *
 from pyscf import gto, scf
-from hyqc.gto.ao import make_hf
+from hqc.gto.ao import make_hf
 
 def test_gto_mo():
     Ry = 2

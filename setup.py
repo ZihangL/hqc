@@ -10,7 +10,7 @@ REQUIRED_PACKAGES = [
     'pyscf'
 ]
 
-def hydrogenqc_test_suite():
+def hqc_test_suite():
     test_loader = unittest.TestLoader()
     test_suite = test_loader.discover('./test', pattern='test_*.py')
     return test_suite
@@ -18,7 +18,7 @@ def hydrogenqc_test_suite():
 print(find_packages())
 
 setup(
-    name='hyqc',
+    name='hqc',
     version='0.0.1',
     description='Quantum chemistry calculations in Hydrogen system.',
     url='https://code.itp.ac.cn/lzh/hydrogen-qc',
@@ -29,5 +29,5 @@ setup(
     install_requires=REQUIRED_PACKAGES,
     extras_require={'testing': ['pytest']},
     platforms=['any'],
-    test_suite='setup.hydrogenqc_test_suite'
+    test_suite='setup.hqc_test_suite'
 )
