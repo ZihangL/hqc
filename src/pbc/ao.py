@@ -35,18 +35,18 @@ def gen_lattice(cell, L, rcut=18):
 def make_ao(lattice, basis):
     
     @jax.remat 
-    def eval_szv(xp, xe):  
-        r = jnp.linalg.norm(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :], axis=2)  # (n_p, n_cell)
+    def eval_szv(xp, xe): 
+        r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_cell)
         gthszv = const * jnp.einsum('i,i,i...->...', coeff_gthszv[:, 1], jnp.power(coeff_gthszv[:, 0], 0.75), \
-            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthszv[:, 0], jnp.power(r, 2))))  # (n_p, n_cell, 2)
+            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthszv[:, 0], r)))  # (n_p, n_cell, 2)
         val = jnp.sum(gthszv, axis=1).reshape(-1)  # (n_ao,)
         return val
 
     @jax.remat 
     def eval_dzv(xp, xe):
-        r = jnp.linalg.norm(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :], axis=2)  # (n_p, n_cell)
+        r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_cell)
         gthdzv = const * jnp.einsum('ik,i,i...->...k', coeff_gthdzv[:, 1:3], jnp.power(coeff_gthdzv[:, 0], 0.75), \
-            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthdzv[:, 0], jnp.power(r, 2))))  # (n_p, n_cell, 2)
+            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthdzv[:, 0], r)))  # (n_p, n_cell, 2)
         val = jnp.sum(gthdzv, axis=1).reshape(-1)  # (n_ao,)
         return val
 
