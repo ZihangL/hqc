@@ -1,7 +1,7 @@
 import jax
 import numpy as np
 import jax.numpy as jnp
-from hqc.ao import make_ao
+from hqc.gto.ao import make_ao
 
 Ry = 2
 delta = 1e-8

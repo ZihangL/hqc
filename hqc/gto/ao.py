@@ -25,6 +25,6 @@ def make_ao(basis):
         r = jnp.sum(jnp.square(xe[None, :] - xp), axis=1) # (n_p,)
         gto = const * jnp.einsum('i,i,i...->...', coeff[:, 1], jnp.power(coeff[:, 0], 0.75), \
                 jnp.exp(-jnp.einsum('i,...->i...', coeff[:, 0], r))).reshape(-1)  # (n_p,)
-        return val
+        return gto
 
     return eval_gto
