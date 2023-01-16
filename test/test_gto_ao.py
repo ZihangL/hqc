@@ -3,11 +3,11 @@ from pyscf import gto
 from hqc.gto.ao import make_ao
 
 def pyscf_eval_ao(xp, xe, basis):
-    p = xp.shape[0]
+    n = xp.shape[0]
     mol = gto.Mole()
     mol.unit = 'B'
-    for ip in range(p):
-        mol.atom.append(['H', tuple(xp[ip])])
+    for i in range(n):
+        mol.atom.append(['H', tuple(xp[i])])
     mol.spin = 0
     mol.basis = basis
     mol.build()
@@ -19,12 +19,12 @@ def test_pbc_ao():
 	n, dim = 14, 3
 	rs = 1.25
 	L = (4/3*jnp.pi*n)**(1/3)*rs
-	basis_set = ['sto3g', 'sto6g']
 	key = jax.random.PRNGKey(42)
 	xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 	key = jax.random.PRNGKey(43)
 	xe = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
+	basis_set = ['sto3g', 'sto6g']
 	for basis in basis_set:
 
 		# pyscf benchmark

@@ -16,24 +16,21 @@ coeff_sto6g = jnp.array([[35.52322122, 0.00916359628],
                         [0.100112428, 0.13033408410]])
 
 def make_hf(basis='sto3g'):
-    n = xp.shape[0]
-    n_up = n_dn = n//2
-    dim_mat = 1 * n
     
     # coefficients of the basis
     if basis == 'sto3g':
-        alpha = coeff_sto3g[:, 0]  # (4,)
-        coeff = coeff_sto3g[:, 1:2].T  # (2, 4)
+        alpha = coeff_sto3g[:, 0]  # (3,)
+        coeff = coeff_sto3g[:, 1:2].T  # (1, 3)
     elif basis == 'sto6g':
-        alpha = coeff_sto6g[:, 0]  # (4,)
-        coeff = coeff_sto6g[:, 1:2].T  # (2, 4)
+        alpha = coeff_sto6g[:, 0]  # (6,)
+        coeff = coeff_sto6g[:, 1:2].T  # (1, 6)
     
     # intermediate varaibles
-    sum_alpha = alpha[:, None] + alpha[None, :]  # (4, 4)
-    pro_alpha = jnp.einsum('i,j->ij', alpha, alpha)  # (4, 4)
-    alpha2 = pro_alpha / sum_alpha  # (4, 4)
+    sum_alpha = alpha[:, None] + alpha[None, :]
+    pro_alpha = jnp.einsum('i,j->ij', alpha, alpha)
+    alpha2 = pro_alpha / sum_alpha
 
-    ao = make_ao(basis)
+    ao = jax.vmap(make_ao(basis), (None, 0), 0)
      
     # erf function
     def f0(x):
@@ -41,6 +38,11 @@ def make_hf(basis='sto3g'):
         return jax.lax.erf(x)/x
 
     def hf(xp):
+        
+        n = xp.shape[0]
+        n_up = n_dn = n//2
+        dim_mat = n * coeff.shape[0]
+
         # overlap
         Rmn = jnp.sum(jnp.square(xp[:, None, :] - xp[None, :, :]), axis=2) # (n, n)
         _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmn->mpinqj', coeff, coeff, jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
@@ -62,14 +64,17 @@ def make_hf(basis='sto3g'):
         w, u = jnp.linalg.eigh(ovlp)
         v = jnp.dot(u, np.diag(w**(-0.5)))
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), hcore, v)
-        w1, mo_coeff = jnp.linalg.eigh(f1) # (n_mo), (n_ao, n_mo)
+        w1, c1 = jnp.linalg.eigh(f1)
+        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
         e = 2 * jnp.sum(w1[0:n//2])
 
         # molecular orbital coefficients
         mo_up, mo_dn = mo_coeff[..., 0:n_up], mo_coeff[..., 0:n_dn] # (n_ao, n_up), (n_ao, n_dn)
 
         def logpsi(xe):
-            ao_all = ao(xe) # (n, n_ao)
+            assert xe.shape[0] == n
+
+            ao_all = ao(xp, xe) # (n, n_ao)
             ao_up = ao_all[:n_up] # (n_up, n_ao)
             ao_dn = ao_all[n_dn:] # (n_dn, n_ao)
             slater_up = jnp.dot(ao_up, mo_up) # (n_up, n_up)
@@ -86,16 +91,27 @@ def make_hf(basis='sto3g'):
 
 if __name__ == "__main__":
     from pyscf import gto, scf
+    from jax.config import config   
+    config.update("jax_enable_x64", True)
     
-    d = 1.4
-    xp = jnp.array([[0,0,0],[d,0,0]])
+    Ry = 2
+    n, dim = 4, 3
+    rs = 1.25
+    L = (4/3*jnp.pi*n)**(1/3)*rs
+    key = jax.random.PRNGKey(42)
+    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    key = jax.random.PRNGKey(43)
+    xe = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     hf = make_hf()
-    print(hf(xp))
+    E, logpsi = hf(xp)
+    print(E)
+    print(logpsi(xe))
 
     mol = gto.Mole()
     mol.unit = 'B'
-    mol.atom = [['H', (0,0,0)], ['H', (d,0,0)]]
+    for i in range(n):
+        mol.atom.append(['H', tuple(xp[i])])
     mol.basis = 'sto3g'
     mol.build()
     mf = scf.RHF(mol)
@@ -104,3 +120,4 @@ if __name__ == "__main__":
     mf.get_veff = lambda *args: np.zeros(mf.get_hcore().shape)
     mf.kernel()
     print(Ry*(mf.e_tot-mf.energy_nuc()))
+    print(mf.mo_coeff)
