@@ -31,7 +31,7 @@ def zerovee(xp, basis):
         logabsdet = logabsdet_up + logabsdet_dn
         return jnp.log(sign) + logabsdet
 
-    return Ry*(mf.e_tot-mf.energy_nuc()), logpsi
+    return Ry*(mf.e_tot-mf.energy_nuc()), mf.mo_coeff, logpsi
 
 def test_gto_mo():
     Ry = 2
@@ -47,14 +47,26 @@ def test_gto_mo():
     basis_set = ['sto3g', 'sto6g']
     for basis in basis_set:
 
-        hf = make_hf(basis)
-        E, logpsi = hf(xp)
-        pyscf_E, pyscf_logpsi = zerovee(xp, basis)
+        hf, logpsi = make_hf(n, basis)
+        E, mo_coeff = hf(xp)
+        pyscf_E, pyscf_mo_coeff, pyscf_logpsi = zerovee(xp, basis)
 
         # test energy
         assert np.allclose(E, pyscf_E)
 
-        # test psi
-        assert np.allclose(logpsi(xe), pyscf_logpsi(xe))
+        # test mo_coeff
+        # assert np.allclose(mo_coeff, pyscf_mo_coeff)
 
-        # jit, vmap test
+        # test psi
+        assert np.allclose(logpsi(mo_coeff, xp, xe), pyscf_logpsi(xe))
+
+        # hf jit, vmap, test
+        jax.jit(hf)(xp)
+        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+        jax.vmap(hf)(xp2)
+
+        # logpsi jit, vmap, grad test
+        jax.jit(jax.grad(logpsi))(mo_coeff, xp, xe)
+        xe2 = jnp.concatenate([xe, xe]).reshape(2, n, dim)
+        jax.vmap(logpsi, (None, None, 0), 0)(mo_coeff, xp, xe2)
+

@@ -15,7 +15,7 @@ coeff_sto6g = jnp.array([[35.52322122, 0.00916359628],
                         [0.243076747, 0.41649152980],
                         [0.100112428, 0.13033408410]])
 
-def make_hf(basis='sto3g'):
+def make_hf(n, basis='sto3g'):
     
     # coefficients of the basis
     if basis == 'sto3g':
@@ -24,6 +24,7 @@ def make_hf(basis='sto3g'):
     elif basis == 'sto6g':
         alpha = coeff_sto6g[:, 0]  # (6,)
         coeff = coeff_sto6g[:, 1:2].T  # (1, 6)
+    dim_mat = n * coeff.shape[0]
     
     # intermediate varaibles
     sum_alpha = alpha[:, None] + alpha[None, :]
@@ -38,10 +39,7 @@ def make_hf(basis='sto3g'):
         return jax.lax.erf(x)/x
 
     def hf(xp):
-        
-        n = xp.shape[0]
-        n_up = n_dn = n//2
-        dim_mat = n * coeff.shape[0]
+        assert n == xp.shape[0]
 
         # overlap
         Rmn = jnp.sum(jnp.square(xp[:, None, :] - xp[None, :, :]), axis=2) # (n, n)
@@ -62,32 +60,31 @@ def make_hf(basis='sto3g'):
 
         # diagonalization
         w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, np.diag(w**(-0.5)))
+        v = jnp.dot(u, jnp.diag(w**(-0.5)))
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), hcore, v)
         w1, c1 = jnp.linalg.eigh(f1)
         mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
         e = 2 * jnp.sum(w1[0:n//2])
 
-        # molecular orbital coefficients
-        mo_up, mo_dn = mo_coeff[..., 0:n_up], mo_coeff[..., 0:n_dn] # (n_ao, n_up), (n_ao, n_dn)
+        return Ry * e, mo_coeff # this E is without vpp
 
-        def logpsi(xe):
-            assert xe.shape[0] == n
+    def logpsi(mo_coeff, xp, xe):
+        assert xe.shape[0] == n
 
-            ao_all = ao(xp, xe) # (n, n_ao)
-            ao_up = ao_all[:n_up] # (n_up, n_ao)
-            ao_dn = ao_all[n_dn:] # (n_dn, n_ao)
-            slater_up = jnp.dot(ao_up, mo_up) # (n_up, n_up)
-            slater_dn = jnp.dot(ao_dn, mo_dn) # (n_dn, n_dn)
-            sign_up, logabsdet_up = jnp.linalg.slogdet(slater_up)
-            sign_dn, logabsdet_dn = jnp.linalg.slogdet(slater_dn)
-            sign = sign_up * sign_dn
-            logabsdet = logabsdet_up + logabsdet_dn
-            return jnp.log(sign) + logabsdet
+        mo_up = mo_dn = mo_coeff[..., 0:n//2] # (n_ao, n_up/n_dn)
+        ao_all = ao(xp, xe) # (n, n_ao)
+        ao_up = ao_all[:n//2] # (n_up, n_ao)
+        ao_dn = ao_all[n//2:] # (n_dn, n_ao)
+        slater_up = jnp.dot(ao_up, mo_up) # (n_up, n_up)
+        slater_dn = jnp.dot(ao_dn, mo_dn) # (n_dn, n_dn)
+        sign_up, logabsdet_up = jnp.linalg.slogdet(slater_up)
+        sign_dn, logabsdet_dn = jnp.linalg.slogdet(slater_dn)
+        sign = sign_up * sign_dn
+        logabsdet = logabsdet_up + logabsdet_dn
+        return jnp.log(sign) + logabsdet
 
-        return Ry * e, logpsi # this E is without vpp
-    
-    return hf
+    return hf, logpsi
+
 
 if __name__ == "__main__":
     from pyscf import gto, scf
@@ -103,10 +100,11 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(43)
     xe = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
-    hf = make_hf()
-    E, logpsi = hf(xp)
-    print(E)
-    print(logpsi(xe))
+    hf, logpsi = make_hf()
+    E, mo_coeff = hf(xp)
+    print("energy:", E)
+    print("mo_coeff:\n", mo_coeff)
+    # print(logpsi(mo_coeff, xe))
 
     mol = gto.Mole()
     mol.unit = 'B'
@@ -119,5 +117,5 @@ if __name__ == "__main__":
     mf.max_cycle = 1
     mf.get_veff = lambda *args: np.zeros(mf.get_hcore().shape)
     mf.kernel()
-    print(Ry*(mf.e_tot-mf.energy_nuc()))
-    print(mf.mo_coeff)
+    print("energy:", Ry*(mf.e_tot-mf.energy_nuc()))
+    print("mo_coeff:\n", mf.mo_coeff)
