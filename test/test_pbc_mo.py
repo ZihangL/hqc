@@ -1,8 +1,9 @@
 from config import *
-from hydrogenqc.mo import make_hf
 from pyscf.pbc import gto, scf
+from hqc.pbc.mo import make_hf
 
 def zerovee(L, xp, basis):
+
     """
         hartree fock without Vee pyscf benchmark.
 
@@ -38,7 +39,7 @@ def zerovee(L, xp, basis):
     c2 = kmf.mo_coeff[0]
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
-def test_mo():
+def test_pbc_mo():
     rtol = 1e-4
     basis = "gth-szv"
     n, dim = 4, 3

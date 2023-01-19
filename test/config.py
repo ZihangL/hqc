@@ -1,6 +1,6 @@
 import sys, os
 testdir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(testdir+"/../src/")
+sys.path.append(testdir+"/../hqc/")
 
 import jax
 from jax.config import config   
