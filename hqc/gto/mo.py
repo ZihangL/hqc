@@ -1,5 +1,4 @@
 import jax
-import numpy as np
 import jax.numpy as jnp
 from hqc.gto.ao import make_ao
 
@@ -16,6 +15,16 @@ coeff_sto6g = jnp.array([[35.52322122, 0.00916359628],
                         [0.100112428, 0.13033408410]])
 
 def make_hf(n, basis='sto3g'):
+    """
+        Make Hartree Fock function.
+        INPUT:
+            n: int, number of hydrogen atoms in unit cell.
+            basis: gto basis name, eg:'sto3g'.
+
+        OUTPUT:
+            hf: hartree fock function.
+            
+    """
     
     # coefficients of the basis
     if basis == 'sto3g':
@@ -39,6 +48,16 @@ def make_hf(n, basis='sto3g'):
         return jax.lax.erf(x)/x
 
     def hf(xp):
+        """
+            Hartree Fock without vee.
+            INPUT:
+                xp: array of shape (n, dim), position of protons.
+
+            OUTPUT:
+                (energy, mo_coeff)
+                energy unit: Rydberg.
+                mo_coeff: coefficient of molecular orbitals on atomic orbitals, shape:(n_ao, n_mo).
+        """
         assert n == xp.shape[0]
 
         # overlap
@@ -69,6 +88,17 @@ def make_hf(n, basis='sto3g'):
         return Ry * e, mo_coeff # this E is without vpp
 
     def logpsi(mo_coeff, xp, xe):
+        """
+            log of hartree fock wavefunction.
+            INPUT:
+                mo_coeff: coefficient of molecular orbitals on atomic orbitals, shape:(n_ao, n_mo).
+                xp: array of shape (n, dim), position of protons.
+                xe: array of shape (n, dim), position of electrons.
+
+            OUTPUT:
+                logpsi
+
+        """
         assert xe.shape[0] == n
 
         mo_up = mo_dn = mo_coeff[..., 0:n//2] # (n_ao, n_up/n_dn)
@@ -87,6 +117,7 @@ def make_hf(n, basis='sto3g'):
 
 
 if __name__ == "__main__":
+    import numpy as np
     from pyscf import gto, scf
     from jax.config import config   
     config.update("jax_enable_x64", True)

@@ -1,5 +1,4 @@
 import jax
-import numpy as np
 import jax.numpy as jnp
 from hqc.pbc.ao import gen_lattice, make_ao
 
@@ -16,6 +15,17 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
 
 def make_hf(n, L, basis):
+    """
+        Make PBC Hartree Fock function.
+        INPUT:
+            n: int, number of hydrogen atoms in unit cell.
+            L: float, side length of unit cell, unit: Bohr.
+            basis: gto basis name, eg:'gth-szv'.
+
+        OUTPUT:
+            hf: hartree fock function.
+    """
+
     cell = jnp.eye(3)
     kpts = jnp.array([[0,0,0]])
 
@@ -50,6 +60,9 @@ def make_hf(n, L, basis):
     Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
 
     def vep_int(xp):
+        """
+            Vep matrix.
+        """
         phi = jax.lax.map(lambda xe: ao(xp, xe), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
         #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         
@@ -64,6 +77,14 @@ def make_hf(n, L, basis):
         return jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
 
     def hf(xp, use_remat=False):
+        """
+            PBC Hartree Fock without vee.
+            INPUT:
+                xp: array of shape (n, dim), position of protons.
+
+            OUTPUT:
+                energy, unit: Rydberg.
+        """
         assert xp.shape[0] == n
 
         # overlap

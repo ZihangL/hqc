@@ -33,6 +33,13 @@ def gen_lattice(cell, L, rcut=18):
     return lattice
 
 def make_ao(lattice, basis):
+    """
+        Make PBC gto orbitals function.
+        INPUT:
+            basis: basis name, eg:'gth-szv'.
+        OUTPUT:
+            eval_pbc: PBC gto orbitals function.
+    """
     
     @jax.remat 
     def eval_szv(xp, xe): 
