@@ -38,26 +38,27 @@ def make_ao(lattice, basis):
         INPUT:
             basis: basis name, eg:'gth-szv'.
         OUTPUT:
-            eval_pbc: PBC gto orbitals function.
+            eval_pbc_gto: PBC gto orbitals function.
     """
-    
-    @jax.remat 
-    def eval_szv(xp, xe): 
-        r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_cell)
-        gthszv = const * jnp.einsum('i,i,i...->...', coeff_gthszv[:, 1], jnp.power(coeff_gthszv[:, 0], 0.75), \
-            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthszv[:, 0], r)))  # (n_p, n_cell, 2)
-        val = jnp.sum(gthszv, axis=1).reshape(-1)  # (n_ao,)
-        return val
+    if basis == 'sto3g':
+        coeff = coeff_gthszv
+    elif basis == 'sto6g':
+        coeff = coeff_gthdzv
 
-    @jax.remat 
-    def eval_dzv(xp, xe):
+    @jax.remat
+    def eval_pbc_gto(xp, xe):
+        """
+            PBC gto orbitals.
+            INPUT:
+                xp: array of shape (n, dim), position of protons in unit cell.
+                xe: array of shape (dim,), position one electron in unit cell.
+            OUTPUT:
+                pbc_gto: PBC gto orbitals at xe, shape:(n_ao,)
+        """
         r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_cell)
-        gthdzv = const * jnp.einsum('ik,i,i...->...k', coeff_gthdzv[:, 1:3], jnp.power(coeff_gthdzv[:, 0], 0.75), \
-            jnp.exp(-jnp.einsum('i,...->i...', coeff_gthdzv[:, 0], r)))  # (n_p, n_cell, 2)
-        val = jnp.sum(gthdzv, axis=1).reshape(-1)  # (n_ao,)
-        return val
+        gto = const * jnp.einsum('ik,i,i...->...k', coeff[:, 1:], jnp.power(coeff[:, 0], 0.75), \
+            jnp.exp(-jnp.einsum('i,...->i...', coeff[:, 0], r)))  # (n_p, n_cell, 2)
+        pbc_gto = jnp.sum(gto, axis=1).reshape(-1)  # (n_ao,)
+        return pbc_gto
 
-    if basis == 'gth-szv':
-        return eval_szv
-    elif basis == 'gth-dzv':
-        return eval_dzv
+    return eval_pbc_gto
