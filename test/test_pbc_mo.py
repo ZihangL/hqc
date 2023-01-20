@@ -2,7 +2,7 @@ from config import *
 from pyscf.pbc import gto, scf
 from hqc.pbc.mo import make_hf
 
-def zerovee(L, xp, basis):
+def zerovee(L, xp, basis, kpt):
 
     """
         hartree fock without Vee pyscf benchmark.
@@ -24,41 +24,52 @@ def zerovee(L, xp, basis):
     gtocell.a = cell*L
     gtocell.build()
 
-    kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
+    kpts = [kpt.tolist()]
+    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
     kmf = scf.khf.KRHF(gtocell, kpts=kpts)
     kmf.verbose = 0
     kmf.max_cycle = 1
     kmf.get_veff = lambda *args: np.zeros(kmf.get_hcore().shape)
     kmf.kernel()
 
-    ovlp = kmf.get_ovlp()
-    K = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
-    V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
-    Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
-    
-    c2 = kmf.mo_coeff[0]
+    # ovlp = kmf.get_ovlp()
+    # K = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
+    # V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
+    # Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
+    # c2 = kmf.mo_coeff[0]
+
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
 def test_pbc_mo():
-    rtol = 1e-4
-    basis = "gth-szv"
-    n, dim = 4, 3
     rs = 1.25
-    cell = np.eye(dim)
+    n, dim = 4, 3
+    k0 = jnp.array([0,0,0])
     L = (4/3*jnp.pi*n)**(1/3)*rs
     key = jax.random.PRNGKey(42)
     xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    key = jax.random.PRNGKey(43)
+    twist = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
 
-    # energy test
-    hf = make_hf(n, L, basis)
-    hy_E = hf(xp)
-    pyscf_E = zerovee(L, xp, basis)
+    basis_set = ['gth-szv', 'gth-dzv']
+    for basis in basis_set:
 
-    print("E:\n", hy_E, "\npyscf E:\n", pyscf_E)
-    assert np.allclose(hy_E, pyscf_E, rtol=rtol)
+        # PBC energy test
+        hf = make_hf(n, L, basis)
+        E = hf(xp, k0)
+        E_pyscf = zerovee(L, xp, basis, k0)
+        print("E:\n", E, "\npyscf E:\n", E_pyscf)
+        assert np.allclose(E, E_pyscf, rtol=1e-4)
 
-    # jit, vmap, grad test
-    jax.jit(jax.grad(hf))(xp)
-    xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
-    jax.vmap(hf)(xp2)
+        # TBC energy test
+        E_twist = hf(xp, twist)
+        E_pyscf_twist = zerovee(L, xp, basis, twist)
+        print("E:\n", E_twist, "\npyscf E:\n", E_pyscf_twist)
+        assert np.allclose(E_twist, E_pyscf_twist, rtol=1e-4)
+
+        # jit, vmap, grad test
+        jax.jit(jax.grad(hf))(xp, k0)
+        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+        jax.vmap(hf, (0, None), 0)(xp2, k0)
+        kpts = jnp.concatenate([k0, k0]).reshape(2, dim)
+        jax.vmap(hf, (None, 0), 0)(xp, kpts)
 

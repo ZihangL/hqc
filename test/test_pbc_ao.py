@@ -32,22 +32,22 @@ def test_pbc_ao():
 	basis_set = ['gth-szv', 'gth-dzv']
 	for basis in basis_set:
 	
-		# pbc pyscf benchmark
-		pyscf_ao = pyscf_eval_ao(L, xp, xe, basis, k0)
+		# PBC pyscf benchmark
+		ao_pyscf = pyscf_eval_ao(L, xp, xe, basis, k0)
 		lattice = gen_lattice(cell, L, rcut=30)
 		eval_ao = jax.vmap(make_ao(lattice, basis), (None, 0, None), 0)
 		ao = eval_ao(xp, xe, k0)
-		assert np.allclose(pyscf_ao, ao)
+		assert np.allclose(ao_pyscf, ao)
 
-		# pbc test
+		# PBC test
 		image = np.random.randint(-2, 3, size=(n, dim)).dot(cell.T)*L
-		pbc_ao = eval_ao(xp, xe+image, k0)
-		assert np.allclose(ao, pbc_ao, rtol=1e-3)
+		ao_pbc = eval_ao(xp, xe+image, k0)
+		assert np.allclose(ao, ao_pbc, rtol=1e-3)
 
-		# twist pyscf benchmark
-		pyscf_ao_twist = pyscf_eval_ao(L, xp, xe, basis, twist)
+		# TBC pyscf benchmark
+		ao_pyscf_twist = pyscf_eval_ao(L, xp, xe, basis, twist)
 		ao_twist = eval_ao(xp, xe, twist)
-		assert np.allclose(pyscf_ao_twist, ao_twist)
+		assert np.allclose(ao_pyscf_twist, ao_twist)
 
 		# jit, vmap, test
 		jax.jit(eval_ao)(xp, xe, k0)
