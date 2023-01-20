@@ -40,25 +40,26 @@ def make_ao(lattice, basis):
         OUTPUT:
             eval_pbc_gto: PBC gto orbitals function.
     """
-    if basis == 'sto3g':
+    if basis == 'gth-szv':
         coeff = coeff_gthszv
-    elif basis == 'sto6g':
+    elif basis == 'gth-dzv':
         coeff = coeff_gthdzv
 
     @jax.remat
-    def eval_pbc_gto(xp, xe):
+    def eval_pbc_gto(xp, xe, kpt):
         """
             PBC gto orbitals.
             INPUT:
                 xp: array of shape (n, dim), position of protons in unit cell.
                 xe: array of shape (dim,), position one electron in unit cell.
+                kpt: array of shape (dim,), kpoint in first Brillouin zone.
             OUTPUT:
                 pbc_gto: PBC gto orbitals at xe, shape:(n_ao,)
         """
-        r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_cell)
-        gto = const * jnp.einsum('ik,i,i...->...k', coeff[:, 1:], jnp.power(coeff[:, 0], 0.75), \
-            jnp.exp(-jnp.einsum('i,...->i...', coeff[:, 0], r)))  # (n_p, n_cell, 2)
-        pbc_gto = jnp.sum(gto, axis=1).reshape(-1)  # (n_ao,)
+        r = jnp.sum(jnp.square(xe[None, None, :] - xp[:, None, :] - lattice[None, :, :]), axis=2) # (n_p, n_lattice)
+        exp_ikT = jnp.exp(1j*jnp.dot(kpt, lattice.T)) # (n_lattice, )
+        pbc_gto = const * jnp.einsum('ib,i,ipl,l->pb', coeff[:, 1:], jnp.power(coeff[:, 0], 0.75), \
+                jnp.exp(-jnp.einsum('i,pl->ipl', coeff[:, 0], r)), exp_ikT).reshape(-1)  # (n_p, n_lattice, n_basis)
         return pbc_gto
 
     return eval_pbc_gto
