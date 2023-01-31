@@ -37,6 +37,9 @@ def zerovee(L, xp, basis, kpt):
     # V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
     # Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
     # c2 = kmf.mo_coeff[0]
+    # print("pyscf overlap:\n", ovlp)
+    # print("pyscf T:\n", K)
+    # print("pyscf V:\n", V)
 
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
