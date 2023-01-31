@@ -27,7 +27,6 @@ def make_hf(n, L, basis):
     """
 
     cell = jnp.eye(3)
-    kpts = jnp.array([[0,0,0]])
 
     lattice = gen_lattice(cell, L)
     ao = make_ao(lattice, basis)
@@ -59,11 +58,11 @@ def make_hf(n, L, basis):
     Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
     Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
 
-    def vep_int(xp):
+    def vep_int(xp, kpt):
         """
             Vep matrix.
         """
-        phi = jax.lax.map(lambda xe: ao(xp, xe), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
+        phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
         #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         
         SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
@@ -76,11 +75,12 @@ def make_hf(n, L, basis):
         vlocR = jnp.reshape(vlocR, -1) # (nx*ny*nz)
         return jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
 
-    def hf(xp, use_remat=False):
+    def hf(xp, kpt, use_remat=False):
         """
             PBC Hartree Fock without vee.
             INPUT:
                 xp: array of shape (n, dim), position of protons.
+                kpt: array of shape (dim,), kpoint in first Brillouin zone.
 
             OUTPUT:
                 energy, unit: Rydberg.
@@ -89,18 +89,18 @@ def make_hf(n, L, basis):
 
         # overlap
         Rmnc = jnp.sum(jnp.square(xp[:, None, None, :] - xp[None, :, None, :] + lattice[None, None, :, :]), axis=3)
-        _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmnc,kc->kmpinqjc', coeff, coeff, jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
-            jnp.exp(-jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), jnp.exp(1j*kpts.dot(lattice.T)))
-        ovlp = jnp.reshape(jnp.einsum('kmpinqjc->kmpnq', _ovlp), (dim_mat, dim_mat))
+        _ovlp = 2**1.5*jnp.einsum('pi,qj,ij,ijmnl,l->mpinqjl', coeff, coeff, jnp.power(pro_alpha, 0.75)/jnp.power(sum_alpha, 1.5), 
+            jnp.exp(-jnp.einsum('ij,mnl->ijmnl', alpha2, Rmnc)), jnp.exp(-1j*kpt.dot(lattice.T)))
+        ovlp = jnp.reshape(jnp.einsum('mpinqjl->mpnq', _ovlp), (dim_mat, dim_mat))
 
         # kinetic
-        K = jnp.reshape(jnp.einsum('kmpinqjc,ij,ijmnc->kmpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
+        K = jnp.reshape(jnp.einsum('mpinqjl,ij,ijmnl->mpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
 
         # potential
         if use_remat:
-            V = jax.remat(vep_int)(xp)
+            V = jax.remat(vep_int)(xp, kpt)
         else:
-            V = vep_int(xp)
+            V = vep_int(xp, kpt)
 
         # core Hamiltonian
         hcore = K + V
