@@ -3,7 +3,6 @@ import jax.numpy as jnp
 from hqc.pbc.ao import gen_lattice, make_ao
 
 Ry = 2
-n_grid = 30
 const = (2 / jnp.pi)**0.75
 coeff_gthszv = jnp.array([[8.3744350009, -0.0283380461],
                         [1.8058681460, -0.1333810052],
@@ -27,6 +26,7 @@ def make_hf(n, L, basis):
     """
 
     cell = jnp.eye(3)
+    n_grid = round(L / 0.12) # same with pyscf
 
     lattice = gen_lattice(cell, L)
     ao = make_ao(lattice, basis)
