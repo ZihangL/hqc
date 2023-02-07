@@ -18,17 +18,22 @@
     showstringspaces=false,
 }
 
-\title{Note}
+\title{Hydrogen note}
 \author{Zihang}
 
 \begin{document}
 \maketitle
 \section{Atomic orbitals}
-    pyscf.pbc.gto.Cell.pbc\_eval\_ao("GTOval\_sph", position, kpts)\\
-    Hydrogen.pbc\_eval\_ao(position)
+    Basis set is the starting point of quantum chemistry calculation.
+    In general, atomic orbitals are preferred by chemists,
+    and plane wave orbitals are preferred by physicists.
+    Because atomic orbitals, such as GTOs and STOs, are good for molecules.
+    And physicist cares about solid more than molecules.
+
+    In hydrogen problem, PBC atomic orbital maybe a good starting point.
     
     \subsection{Gaussian type orbitals}
-        We use Gaussian type orbitals as basis functions.
+        We use Gaussian type orbitals (GTOs) as basis functions.
         The basis we used here, as well as in \href{https://pyscf.org/}{PYSCF},
         is a little bit different from \href{https://www.cp2k.org/basis_sets}{CP2K}.
         Take \href{https://github.com/pyscf/pyscf/blob/master/pyscf/pbc/gto/basis/gth-dzvp.dat}{gth-dzvp} as an example.
@@ -43,24 +48,107 @@
                 2  1  1  1  1
                         0.7270000000   1.0000000000
         \end{lstlisting}
-        The file-format used in the .dat file
+        We explain the file-format using in the example.
 
-        \begin{gather}
-            \chi_i(\textbf{r}) = R_i(r)\cdot Y_{l_i,m_i}(\theta,\phi) \notag \\
-            R_i(r) = r^{l_i}\sum_{j=1}^Nc_{ij}\exp(-\alpha_j\cdot r^2) \notag
-        \end{gather}
+        \begin{itemize}
+            \item[] \textbf{Line 1} are the name of the element and basis set.
+            \item[] \textbf{Line 2} specifies the number of sets this basis set contains (here 2).
+            \item[] \textbf{Line 3} specifies the composition of the first set.
+            \begin{itemize}
+                \item[] The first number specifies the principal quantum number (here: 1).
+                \item[] The second number specifies the minimal angular quantum number $l_{min}$ (here: 0).
+                \item[] The third number specifies the maximal angular quantum number $l_{max}$ (here: 0).
+                \item[] The fourth number specifies the number of exponents $N$ (here: 4).
+            \end{itemize}
+            \item[] The following numbers specify the number of contracted basis functions for each angular momentum value $n_l$ (here only $l=0$).
+            \begin{itemize}
+                \item[] The fifth number specifies the number of contractions for $l=0$ (here: 2).
+            \end{itemize}
+            \item[] \textbf{Line 4-7} specify the coefficients of the first set. Each line consists of an exponent $\alpha_j$
+            , followed by contraction coefficients $c_{ij}$.
+            \item[] \textbf{Line 8} specifies the composition of the second set.
+            \item[] \textbf{Line 9} specifies the coefficients of the second set.
+        \end{itemize}
 
-        \begin{gather}
-            \chi_i(\textbf{r}) = \sqrt{4\pi}R_i(r)\cdot Y_{l_i,m_i}(\theta,\phi) \\
-            R_i(r) = r^{l_i}\sum_{j=1}^Nc_{ij}\left(\frac{2\alpha_{j}}{\pi}\right)^{\frac{3}{4}}\exp(-\alpha_{j}\cdot r^2)
-        \end{gather}
+        We use the same atomic orbital with \href{https://pyscf.org/}{PYSCF}.
 
+        \begin{equation}
+            \varphi_i(\textbf{r}) = N_{\textbf{m}}x^{m_x}y^{m_y}z^{m_z}\sum_{j=1}^NN_{j}c_{ij}\exp\left(-\alpha_{j}\cdot r^2\right)
+        \end{equation}
+
+        Where $N_{\textbf{m}}$ and $N_{j}$ are normalization factors.
+        So the five bases of hydrogen in the example are as follows,
+        ~\\
+        \hrule
+        $ \varphi_1(\textbf{r}) = \left(\frac{2}{\pi}\right)^{\frac{3}{4}}\left[
+            0.028\cdot(8.374)^{\frac{3}{4}}\cdot e^{-8.374r^2}+
+            0.133\cdot(1.806)^{\frac{3}{4}}\cdot e^{-1.806r^2}+
+            0.400\cdot(0.485)^{\frac{3}{4}}\cdot e^{-0.485r^2}+
+            0.553\cdot(0.166)^{\frac{3}{4}}\cdot e^{-0.166r^2}\right] $
+
+        $ \varphi_2(\textbf{r}) = \left(\frac{2}{\pi}\right)^{\frac{3}{4}}
+            1.000\cdot(0.166)^{\frac{3}{4}}\cdot e^{-0.166r^2} $
+
+        $ \varphi_3(\textbf{r}) = 1.000\cdot x e^{-0.727r^2} $
+
+        $ \varphi_4(\textbf{r}) = 1.000\cdot y e^{-0.727r^2} $
+
+        $ \varphi_5(\textbf{r}) = 1.000\cdot z e^{-0.727r^2} $
+        \hrule
+        ~\\
+        Normalization factors may be different from \href{https://pyscf.org/}{PYSCF}. To be verified.
+        
     \subsection{PBC orbitals}
-    Crystalline orbitals Gaussian basis function $\phi$ is a lattice sum over local Gaussians $\chi$
+    Crystalline orbitals Gaussian basis function $\phi$ is a lattice sum over local Gaussians $\varphi$
     \begin{equation}
-        \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\chi_i(\textbf{r}-\textbf{T})
+        \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})\label{ao}
     \end{equation}
     where $\textbf{k}$ is a vector in the first Brillouin zone and $\textbf{T}$ is a lattice translational vector.
+    It should be noted that this $\phi_{\textbf{k},i}(\textbf{r})$ is not a periodic function, 
+    so PBC here maybe a misleading word, TBC is more accurate.
+    According to Bloch's theorem, we have
+    \begin{equation}
+        \phi_{\textbf{k},i}(\textbf{r}) = e^{i\textbf{k}\cdot\textbf{r}}u_{\textbf{k},i}(\textbf{r})
+    \end{equation}
+    where $u_{\textbf{k},i}(\textbf{r})$ is fully periodic with respect to all lattice translations.
+    Therefore, we can exactly expand the crystalline AOs in a set of auxiliary plane-waves
+    \begin{gather}
+        \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{G}}\phi_{\textbf{k},i}(\textbf{G})e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft}\\
+        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int_\Omega d\textbf{r}\phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff}
+    \end{gather}
+    In practice, we can get PBC orbitals both from eq.\eqref{ao} and eq.\eqref{ao_ft}. 
+    The summations in these two equations are done in a cutoff range.
+    To compare the computational complexity of eq.\eqref{ao} and eq.\eqref{ao_ft}, 
+    we have to specify the fourier coeffcients by using eq.\eqref{ao_ft_coeff}.
+    \begin{align*}
+        \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_\Omega d\textbf{r}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
+        &= \frac{1}{\Omega}\int d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
+    \end{align*}
+    For GTOs, the fourier coeffcients can be performed analytically.
+    \begin{equation}
+        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
+    \end{equation}
+    Take a simple s orbital $\varphi(\textbf{r})=e^{-\alpha r^2}$ as an example.
+    Using eq.\eqref{ao}, we can get PBC orbitals
+    \begin{equation}
+        \phi_{\textbf{k}}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}e^{-\alpha (\textbf{r}-\textbf{T})^2}\label{7}
+    \end{equation}
+    On the other hand, the fourier coeffcients from eq.\eqref{ao_ft_coeff1} is
+    \begin{equation*}
+        \phi_{\textbf{k}}(\textbf{G}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]
+    \end{equation*}
+    Using eq.\eqref{ao_ft}, we can get PBC orbitals
+    \begin{equation}
+        \phi_{\textbf{k}}(\textbf{r}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\sum_{\textbf{G}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{8}
+    \end{equation}
+    Compare these two equations eq.\eqref{7} and eq.\eqref{8}, \textbf{we have this conclusion}:
+    For large $\alpha$, whose atomic orbital is sharp, directly summation eq.\eqref{ao} has a faster convergence speed,
+    and for small $\alpha$, which has gradual atomic orbital, eq.\eqref{ao_ft} has a faster convergence speed.
+    
 
 \section{PBC Hartree Fock}
     Here we use index $\mu,\nu$ to specify atoms,
