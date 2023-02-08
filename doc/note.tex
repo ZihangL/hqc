@@ -85,7 +85,7 @@
             0.133\cdot(1.806)^{\frac{3}{4}}\cdot e^{-1.806r^2}+
             0.400\cdot(0.485)^{\frac{3}{4}}\cdot e^{-0.485r^2}+
             0.553\cdot(0.166)^{\frac{3}{4}}\cdot e^{-0.166r^2}\right] $
-
+ 
         $ \varphi_2(\textbf{r}) = \left(\frac{2}{\pi}\right)^{\frac{3}{4}}
             1.000\cdot(0.166)^{\frac{3}{4}}\cdot e^{-0.166r^2} $
 
@@ -114,23 +114,23 @@
     Therefore, we can exactly expand the crystalline AOs in a set of auxiliary plane-waves
     \begin{gather}
         \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{G}}\phi_{\textbf{k},i}(\textbf{G})e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft}\\
-        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int_\Omega d\textbf{r}\phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff}
+        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff}
     \end{gather}
     In practice, we can get PBC orbitals both from eq.\eqref{ao} and eq.\eqref{ao_ft}. 
     The summations in these two equations are done in a cutoff range.
     To compare the computational complexity of eq.\eqref{ao} and eq.\eqref{ao_ft}, 
     we have to specify the fourier coeffcients by using eq.\eqref{ao_ft_coeff}.
     \begin{align*}
-        \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
-        &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
-        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_\Omega d\textbf{r}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
-        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
-        &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
-        &= \frac{1}{\Omega}\int d\textbf{r}'\varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
+        \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_\Omega d\textbf{r}\ \varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
+        &= \frac{1}{\Omega}\int d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
     \end{align*}
     For GTOs, the fourier coeffcients can be performed analytically.
     \begin{equation}
-        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
+        \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
     \end{equation}
     Take a simple s orbital $\varphi(\textbf{r})=e^{-\alpha r^2}$ as an example.
     Using eq.\eqref{ao}, we can get PBC orbitals
@@ -151,13 +151,14 @@
     
 
 \section{PBC Hartree Fock}
+    In this part, we will introduce Hartree Fock method on these PBC orbitals.
     Here we use index $\mu,\nu$ to specify atoms,
     $p,q,r,s$ to specify orbitals of each atom,
     $i,j,k,l$ to specify coeffcients of each orbital,
     $c,d$ to specify cells.
     Then the $p$ th pbc gaussian type orbital of $\mu$ th atom can be described as
     \begin{equation}
-        \ket{\textbf{R}_{\mu,p}} = \sum_{i,c}c_{pi}\ket{\alpha_{i}\textbf{R}_{\mu,c}}
+        \ket{\textbf{R}_{\textbf{k}\mu p}} = \sum_{i,c}e^{i\textbf{k}\cdot\textbf{T}_c}c_{pi}\ket{\alpha_{i}\textbf{R}_{\mu c}}
     \end{equation}
     Here are some commonly used shorthand symbols.
     \begin{gather*}
@@ -177,6 +178,9 @@
 
         \subsubsection{Overlap}
             The overlap matrix element is given by
+            \begin{equation}
+                S_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+            \end{equation}
             \begin{equation}
                 O_{\mu p,\nu q} = \braket{\textbf{R}_{\mu p}|\textbf{R}_{\nu q}} 
                 = \sum_c\sum_{ij}c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
@@ -266,5 +270,8 @@
 \section{Gradient logpsi}
 
 \section{Laplacian logpsi}
+
+\section*{Notation}
+
 
 \end{document}
