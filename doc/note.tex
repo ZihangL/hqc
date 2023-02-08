@@ -70,7 +70,7 @@
             \item[] \textbf{Line 9} specifies the coefficients of the second set.
         \end{itemize}
 
-        We use the same atomic orbital with \href{https://pyscf.org/}{PYSCF}.
+        We use the same contracted GTOs with \href{https://pyscf.org/}{PYSCF}.
 
         \begin{equation}
             \varphi_i(\textbf{r}) = N_{\textbf{m}}x^{m_x}y^{m_y}z^{m_z}\sum_{j=1}^NN_{j}c_{ij}\exp\left(-\alpha_{j}\cdot r^2\right)
@@ -99,7 +99,7 @@
         Normalization factors may be different from \href{https://pyscf.org/}{PYSCF}. To be verified.
         
     \subsection{PBC orbitals}
-    Crystalline orbitals Gaussian basis function $\phi$ is a lattice sum over local Gaussians $\varphi$
+    Crystalline orbitals Gaussian basis function $\phi$ is a lattice sum over local contracted Gaussians $\varphi$
     \begin{equation}
         \phi_{\textbf{k},i}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})\label{ao}
     \end{equation}
@@ -128,7 +128,7 @@
         &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
         &= \frac{1}{\Omega}\int d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
     \end{align*}
-    For GTOs, the fourier coeffcients can be performed analytically.
+    For GTOs, the fourier coeffcients can be performed analytically
     \begin{equation}
         \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
     \end{equation}
@@ -154,27 +154,54 @@
     In this part, we will introduce Hartree Fock method on these PBC orbitals.
     Here we use index $\mu,\nu$ to specify atoms,
     $p,q,r,s$ to specify orbitals of each atom,
-    $i,j,k,l$ to specify coeffcients of each orbital,
-    $c,d$ to specify cells.
-    Then the $p$ th pbc gaussian type orbital of $\mu$ th atom can be described as
+    $i,j,k,l$ to specify coeffcients of each orbital.
+    Then the $p$ th PBC contracted GTO of $\mu$ th atom can be described as
     \begin{equation}
-        \ket{\textbf{R}_{\textbf{k}\mu p}} = \sum_{i,c}e^{i\textbf{k}\cdot\textbf{T}_c}c_{pi}\ket{\alpha_{i}\textbf{R}_{\mu c}}
+        \phi_{\textbf{k},p}(\textbf{r}-\textbf{R}_{\mu}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_p(\textbf{r}-\textbf{R}_{\mu}-\textbf{T})
     \end{equation}
-    Here are some commonly used shorthand symbols.
-    \begin{gather*}
-        \alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j} \\
-        \alpha_{ij,kl} = \frac{(\alpha_i+\alpha_j)(\alpha_k+\alpha_l)}{\alpha_i+\alpha_j+\alpha_k+\alpha_l} \\
-        \textbf{R}_{\mu i,\nu j,c} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,c}}{\alpha_i+\alpha_j}
-    \end{gather*}
+    or 
+    \begin{equation}
+        \phi_{\textbf{k},p}(\textbf{r}-\textbf{R}_{\mu}) = \sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})e^{i(\textbf{k}+\textbf{G})\cdot(\textbf{r}-\textbf{R}_{\mu})}
+    \end{equation}
+    where
+    \begin{equation}
+        \phi_{\textbf{k},p}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_p(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}
+    \end{equation}
+    In this part, we will show overlap, kinetic energy and local potential integrals both in real space and reciprocal space.
+
+    % Here are some commonly used shorthand symbols.
+    % \begin{gather*}
+    %     \alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j} \\
+    %     \alpha_{ij,kl} = \frac{(\alpha_i+\alpha_j)(\alpha_k+\alpha_l)}{\alpha_i+\alpha_j+\alpha_k+\alpha_l} \\
+    %     \textbf{R}_{\mu i,\nu j,c} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,c}}{\alpha_i+\alpha_j}
+    % \end{gather*}
 
     \subsection{Integtals}
-        General integral on PBC basis is given by
+        Here are some commonly used tricks in this part. 
+        Assume $\varphi(x)$ is a 1D atomic orbital, the 1D PBC atomic orbital is
+        $$ \phi_{k,p}(x) = \sum_{n=-\infty}^{+\infty}e^{inkT}\varphi_p(x-nT) $$
+        or
+        $$ \phi_{k,p}(x) = \sum_{n=-\infty}^{+\infty}\phi_{k,p}(nG)e^{i(k+nG)x} $$
+        General 1D integral of periodic operator $A(x)$ is given by
+        $$ A_{pq}(k) = \int_0^Tdx\ \phi_{k,p}^*(x)A(x)\phi_{k,q}(x) $$
+        In real space, the integral in a unit cell turns into infinite 1D integrals, 
+        which always have analytical expressions for GTOs
         \begin{align*}
-            A_{ij} &= \sum_{m,n}\int_0^T a(x)\chi_i(x+mT)\chi_j(x+nT)dx \\
-            &= \sum_{m,n}\int_{mT}^{(m+1)T} a(x'-mT)\chi_i(x')\chi_j[x'+(n-m)T]dx' \\
-            &= \sum_{m,n-m}\int_{mT}^{(m+1)T} a(x')\chi_i(x')\chi_j[x'+(n-m)T]dx' \\
-            &= \sum_{n'}\int_{-\infty}^{\infty} a(x')\chi_i(x')\chi_j(x'+n'T)dx'
+            A_{pq}(k) &= \int_0^Tdx\ \left[\sum_{m}e^{-imkT}\varphi_p(x-mT)\right]A(x)\left[\sum_{n}e^{inkT}\varphi_q(x-nT)\right] \\
+            &= \sum_{m,n}e^{-i(m-n)kT}\int_{-mT}^{(-m+1)T}dx'\ \varphi_p(x')A(x'+mT)\varphi_q[x'+(m-n)T] \\
+            &= \sum_{m,m-n}e^{-i(m-n)kT}\int_{-mT}^{(-m+1)T}dx'\ \varphi_p(x')A(x')\varphi_q[x'+(m-n)T] \\
+            &= \sum_{n'}e^{-in'kT}\int_{-\infty}^{\infty}dx'\ \varphi_p(x')A(x')\varphi_q(x'+n'T)
         \end{align*}
+        General 1D integral in reciprocal space is given by
+        \begin{align*}
+            A_{pq}(k) &= \int_0^Tdx\ \left[\sum_m\phi_{k,p}^*(mG)e^{-i(k+mG)x}\right]A(x)\left[\sum_n\phi_{k,q}(nG)e^{i(k+nG)x}\right] \\
+            &= \sum_{m,n}\phi_{k,p}^*(mG)\phi_{k,q}(nG)\int_0^Tdx\ A(x)e^{i(n-m)Gx}
+        \end{align*}
+        The integrals in a unit cell sometimes have results like $\delta_{m,n}$.
+        Of course there is a third way to get the integral result:
+        we can always do numerical integration on a mesh in the unit cell,
+        and sometimes it is worthy on account of FFT.
+        
 
         \subsubsection{Overlap}
             The overlap matrix element is given by
@@ -223,31 +250,31 @@
                 V(\textbf{G}) = \frac{4\pi}{L^3}\frac{1}{G^2}
             \end{equation}
 
-        \subsubsection{Electron interaction}
-            The interaction matrix element
-            \begin{equation}
-                E_{p\mu q\nu,r\gamma s\eta} = \bra{\alpha_p\textbf{R}_{\mu}\alpha_q\textbf{R}_{\nu}}
-                \frac{1}{|r-r'|}\ket{\alpha_r\textbf{R}_{\gamma}\alpha_s\textbf{R}_{\eta}} 
-                = 2 O_{p\mu,r\gamma}O_{q\nu,s\eta}\sqrt{\frac{\alpha_{pr,qs}}{\pi}}
-                F_0\left[\alpha_{pr,qs}(\textbf{R}_{p\mu,r\gamma}-\textbf{R}_{q\nu,r\eta})^2\right]
-            \end{equation}
-            Where
-            \begin{equation}
-                F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1
-            \end{equation}
+        % \subsubsection{Electron interaction}
+        %     The interaction matrix element
+        %     \begin{equation}
+        %         E_{p\mu q\nu,r\gamma s\eta} = \bra{\alpha_p\textbf{R}_{\mu}\alpha_q\textbf{R}_{\nu}}
+        %         \frac{1}{|r-r'|}\ket{\alpha_r\textbf{R}_{\gamma}\alpha_s\textbf{R}_{\eta}} 
+        %         = 2 O_{p\mu,r\gamma}O_{q\nu,s\eta}\sqrt{\frac{\alpha_{pr,qs}}{\pi}}
+        %         F_0\left[\alpha_{pr,qs}(\textbf{R}_{p\mu,r\gamma}-\textbf{R}_{q\nu,r\eta})^2\right]
+        %     \end{equation}
+        %     Where
+        %     \begin{equation}
+        %         F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1
+        %     \end{equation}
             
-        \subsubsection{Hcore}
-            Hamiltonian matrix element without interaction
-            \begin{equation}
-                h_{p\mu,q\nu} = T_{p\mu,q\nu} - \sum_{N}V_{p\mu,q\nu,N}
-            \end{equation}
-        \subsubsection{Fock matrix}
-            Fock operator matrix element
-            \begin{equation}
-                F_{p\mu,q\nu} = \bra{\alpha_p\textbf{R}_{\mu}}\hat{H}\ket{\alpha_q\textbf{R}_{\nu}} 
-                = h_{p\mu,q\nu} + \sum_{k}\sum_{r\gamma,s\eta} 
-                (2E_{p\mu r\gamma,q\nu s\eta}-E_{p\mu r\gamma,s\eta q\nu})C_{r\gamma,k}^*C_{s\eta,k}
-            \end{equation}
+        % \subsubsection{Hcore}
+        %     Hamiltonian matrix element without interaction
+        %     \begin{equation}
+        %         h_{p\mu,q\nu} = T_{p\mu,q\nu} - \sum_{N}V_{p\mu,q\nu,N}
+        %     \end{equation}
+        % \subsubsection{Fock matrix}
+        %     Fock operator matrix element
+        %     \begin{equation}
+        %         F_{p\mu,q\nu} = \bra{\alpha_p\textbf{R}_{\mu}}\hat{H}\ket{\alpha_q\textbf{R}_{\nu}} 
+        %         = h_{p\mu,q\nu} + \sum_{k}\sum_{r\gamma,s\eta} 
+        %         (2E_{p\mu r\gamma,q\nu s\eta}-E_{p\mu r\gamma,s\eta q\nu})C_{r\gamma,k}^*C_{s\eta,k}
+        %     \end{equation}
 
     \subsection{Solution of Roothaan equation}
         Roothaan equation
@@ -265,11 +292,11 @@
 
 \section{Wave function}
 
-\section{Density}
+% \section{Density}
 
-\section{Gradient logpsi}
+% \section{Gradient logpsi}
 
-\section{Laplacian logpsi}
+% \section{Laplacian logpsi}
 
 \section*{Notation}
 
