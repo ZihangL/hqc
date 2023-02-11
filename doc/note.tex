@@ -152,7 +152,7 @@
 
 \section{PBC Hartree Fock}
     In this part, we will introduce Hartree Fock method on these PBC orbitals.
-    Here we use index $\mu,\nu$ to specify atoms,
+    Here we use index $\mu,\nu,\sigma,\rho$ to specify atoms,
     $p,q,r,s$ to specify orbitals of each atom,
     $i,j,k,l$ to specify coeffcients of each orbital.
     Then the $p$ th PBC contracted GTO of $\mu$ th atom can be described as
@@ -202,54 +202,75 @@
         we can always do numerical integration on a mesh in the unit cell,
         and sometimes it is worthy on account of FFT.
         
-
-        \subsubsection{Overlap}
-            The overlap matrix element is given by
+        \subsubsection{Integtals in real space}
+            The \textbf{overlap} matrix element is given by
             \begin{equation}
                 S_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
+            For PBC s-orbital GTOs,
+            $$ \phi_{\textbf{k},p}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\sum_ic_{pi}\left(\frac{2\alpha_i}{\pi}\right)^{\frac{3}{4}}e^{-\alpha_i(\textbf{r}-\textbf{T})^2} $$
+            The result of real-space integration is   
             \begin{equation}
-                O_{\mu p,\nu q} = \braket{\textbf{R}_{\mu p}|\textbf{R}_{\nu q}} 
-                = \sum_c\sum_{ij}c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
-                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+                S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k}) = c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
+                e^{-i\textbf{k}\cdot\textbf{T}}e^{-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu}+\textbf{T})^2}
             \end{equation}
             \begin{equation}
-                O_{\mu pi,\nu qj,c} = c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
-                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+                S_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
             \end{equation}
-            \begin{equation}
-                O_{\mu p,\nu q} = \sum_c\sum_{ij}O_{\mu pi,\nu qj,c}
-            \end{equation}
+            where $\alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j}$.
 
-        \subsubsection{Kinetic}
-            The kinetic matrix element
+            The \textbf{kinetic} matrix element is given by
             \begin{equation}
-                T_{\mu p,\nu q} = \bra{\textbf{R}_{\mu p}}-\frac{1}{2}\nabla^2\ket{\textbf{R}_{\nu q}}
-                = \sum_c\sum_{ij}c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
-                \exp\left[-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
-                \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+                T_{\mu p,\nu q}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\nabla_{\textbf{r}}^2\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
+            The result of real-space integration is  
             \begin{equation}
-                T_{\mu p,\nu q} = \sum_c\sum_{ij}O_{\mu pi,\nu qj,c}
-                \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu,c})^2\right]
+                T_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
+                \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu}+\textbf{T})^2\right]
             \end{equation}
-
-        \subsubsection{Potential}
-            The potential matrix element
+            The \textbf{local potential} matrix element is given by
             \begin{equation}
-                V_{\mu p,\nu q,N} = \bra{\textbf{R}_{\mu p}}\sum_d\frac{1}{|r-R_{N,d}|}\ket{\textbf{R}_{\nu q}} 
-                = 2 \sum_{cd}\sum_{ij}O_{\mu pi,\nu qj,c}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}
-                F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{N,d}-\textbf{R}_{\mu i,\nu j,c})^2\right]
+                V_{\mu p,\nu q}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v^L(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
+            The two-gaussian integral has analytical result, so the local potential is
             \begin{equation}
-                V_{\mu p,\nu q} = \sum_{\textbf{G}\neq 0}\sum_N\sum_c\sum_{ij}V(\textbf{G})O_{\mu pi,\nu qj,c}
-                \exp\left[-i\textbf{G}\cdot(\textbf{R}_N-\textbf{R}_{\mu i,\nu j,c})\right]\exp\left[-\frac{G^2}{4(\alpha_i+\alpha_j)}\right]
+                V_{\mu p,\nu q}^L(\textbf{k}) = 2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
+            \end{equation}
+            where
+            $$ F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1 $$
+            and some shorthand symbols
+            $$ \textbf{R}_{\sigma,\textbf{T}} = \textbf{R}_{\sigma} +\textbf{T} $$
+            $$ \textbf{R}_{\mu i,\nu j,\textbf{T}} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,\textbf{T}}}{\alpha_i+\alpha_j} $$
+            but this summation eq.\eqref{localp_divergent} is divergent.
+            We should add a uniform negative charge density background to offset the positive charge without influencing the movement of electrons,
+            or remove the $\textbf{k}=0$ term from the Fourier expansion.
+            The Fourier expansion of Coulomb potential is
+            \begin{equation}
+                V(\textbf{r}) = \sum_{\textbf{T}}\frac{1}{|\textbf{r}-\textbf{T}|}
+                = \sum_{\textbf{G}}V(\textbf{G})e^{i\textbf{G}\cdot\textbf{r}}
             \end{equation}
             where
             \begin{equation}
                 V(\textbf{G}) = \frac{4\pi}{L^3}\frac{1}{G^2}
             \end{equation}
+            so eq.\eqref{localp_divergent} turns into
+            \begin{equation}
+                V_{\mu p,\nu q}^L(\textbf{k}) = \sum_{\sigma}\sum_{\textbf{G}\neq 0}\sum_{ij\textbf{T}}V(\textbf{G})S_{\mu pi,\nu qj,\textbf{T}}
+                \exp\left[-i\textbf{G}\cdot(\textbf{R}_{\sigma}-\textbf{R}_{\mu i,\nu j,\textbf{T}})\right]\exp\left[-\frac{G^2}{4(\alpha_i+\alpha_j)}\right]\label{localp_real}
+            \end{equation}
+            (caution: something is still wrong with this equation \eqref{localp_real}.)
+            In practice, obtaining $V(\textbf{r})$ from FFT and do numerical integration in a unit cell is a more economic way.
+            
 
+        \subsubsection{Integtals in reciprocal space}
+            The \textbf{overlap} integral of reciprocal-space integration is
+            \begin{equation}
+                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
+            \end{equation}
+            The \textbf{kinetic} integral of reciprocal-space integration is
+
+            The \textbf{local potential} integral of reciprocal-space integration is
+            
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
         %     \begin{equation}
