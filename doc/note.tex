@@ -153,8 +153,9 @@
 \section{PBC Hartree Fock}
     In this part, we will introduce Hartree Fock method on these PBC orbitals.
     Here we use index $\mu,\nu,\sigma,\rho$ to specify atoms,
-    $p,q,r,s$ to specify orbitals of each atom,
-    $i,j,k,l$ to specify coeffcients of each orbital.
+    $p,q,r,s$ to specify atomic orbitals of each atom,
+    $i,j,k,l$ to specify coeffcients of each atomic orbital,
+    $m,n$ to specify molecular orbital.
     Then the $p$ th PBC contracted GTO of $\mu$ th atom can be described as
     \begin{equation}
         \phi_{\textbf{k},p}(\textbf{r}-\textbf{R}_{\mu}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_p(\textbf{r}-\textbf{R}_{\mu}-\textbf{T})
@@ -202,7 +203,7 @@
         we can always do numerical integration on a mesh in the unit cell,
         and sometimes it is worthy on account of FFT.
         
-        \subsubsection{Integtals in real space}
+        \subsubsection{Overlap}
             The \textbf{overlap} matrix element is given by
             \begin{equation}
                 S_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
@@ -219,6 +220,12 @@
             \end{equation}
             where $\alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j}$.
 
+            The \textbf{overlap} integral of reciprocal-space integration is
+            \begin{equation}
+                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
+            \end{equation}
+
+        \subsubsection{Kinetic}
             The \textbf{kinetic} matrix element is given by
             \begin{equation}
                 T_{\mu p,\nu q}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\nabla_{\textbf{r}}^2\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
@@ -228,6 +235,12 @@
                 T_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
                 \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu}+\textbf{T})^2\right]
             \end{equation}
+            The \textbf{kinetic} integral of reciprocal-space integration is
+            \begin{equation}
+                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
+            \end{equation}
+
+        \subsubsection{Potential}
             The \textbf{local potential} matrix element is given by
             \begin{equation}
                 V_{\mu p,\nu q}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v^L(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
@@ -283,12 +296,12 @@
             $$ 0,\frac{2\pi}{L},\frac{4\pi}{L},\dots,\frac{2(n-1)\pi}{L} $$
             The 1D inverse DFT is defined as
             \begin{equation}
-                a_m = {\rm FFT}(A_k) = \frac{1}{n}\sum_{k=0}^{n-1}A_k\exp\left\{2\pi i\frac{mk}{n}\right\}
+                a_m = {\rm iFFT}(A_k) = \frac{1}{n}\sum_{k=0}^{n-1}A_k\exp\left\{2\pi i\frac{mk}{n}\right\}
             \end{equation}
             So the 1D local potential is
             \begin{equation}
                 v^l(m\frac{L}{n}) = -n\cdot\frac{1}{n}\sum_{k=0}^{n-1}V(G_k)\exp\left\{i\cdot k\frac{2\pi}{L}\cdot m\frac{L}{n}\right\}
-                = -n\cdot {\rm FFT}\left[V(G_k)\right]\ {\rm for}\ m = 0,1,\dots,n-1
+                = -n\cdot {\rm iFFT}\left[V(G_k)\right]\ {\rm for}\ m = 0,1,\dots,n-1
             \end{equation}
             where the mapping of $G_k$ to $G$ is
             \begin{equation}
@@ -297,20 +310,32 @@
                     (k-n)\frac{2\pi}{L}, & if\ n/2\leq k<n
                 \end{cases}
             \end{equation}
-
-        \subsubsection{Integtals in reciprocal space}
-            The \textbf{overlap} integral of reciprocal-space integration is
-            \begin{equation}
-                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
-            \end{equation}
-            The \textbf{kinetic} integral of reciprocal-space integration is
-            \begin{equation}
-                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
-            \end{equation}
             The \textbf{local potential} integral of reciprocal-space integration is
             \begin{equation}
                 V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k},p}(\textbf{G}_1)\phi_{\textbf{k},q}(\textbf{G}_2)e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
+            \end{equation}         
+            
+        \subsubsection{Hartree}
+            The \textbf{Hartree} term matrix element is given by
+            \begin{equation}
+                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
+            electron density $\rho(\textbf{r})$ for closed-shell system is given by
+            \begin{equation}
+                \rho(\textbf{r}) = 2\sum_{occ}\left|\psi_{\textbf{k},m}(\textbf{r})\right|^2
+            \end{equation}
+            Hartree potential
+            \begin{equation}
+                v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
+            \end{equation}
+            where
+            \begin{equation}
+                \rho(\textbf{G}) = \int_{\omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}
+            \end{equation}
+
+        \subsubsection{Exchange}
+        
+        
             
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
