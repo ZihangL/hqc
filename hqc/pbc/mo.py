@@ -58,22 +58,29 @@ def make_hf(n, L, basis):
     Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
     Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
 
-    def vep_int(xp, kpt):
-        """
+    # Coulomb potential on reciprocal space
+    Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
+    VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
+    VG = VG.at[0,0,0].set(0)
+    
+    def vep_int(xp, phi):
+        """ 
             Vep matrix.
         """
-        phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
-        #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
-        
         SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
-        Gnorm = jnp.linalg.norm(Gmesh, axis=3) # (nx, ny, nz)
-        VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / jnp.square(Gnorm) # (nx, ny, nz)
-        VG = VG.at[0,0,0].set(0)
         vlocG = -SI * VG # (nx, ny, nz)
-
-        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG) # (nx, ny, nz)
-        vlocR = jnp.reshape(vlocR, -1) # (nx*ny*nz)
+        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG).reshape(-1) # (nx*ny*nz)
         return jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+    
+    def hartree_int(xp, kpt, phi, mo_coeff):
+        """
+            Hartree matrix.
+        """
+        dm = density_matrix(mo_coeff)
+        rhoR = jax.vmap(density, (None, None, None, 0), 0)(dm, kpt, xp, Rmesh.reshape(-1,3)) # (nx*ny*nz)
+        rhoG = (L/n_grid)**3*jnp.fft.fftn(rhoR.reshape(n_grid, n_grid, n_grid))
+        VH = n_grid**3*jnp.fft.ifftn(VG*rhoG).reshape(-1) # (nx*ny*nz)
+        return jnp.einsum('xm,x,xn->mn', phi.conjugate(), VH, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -97,22 +104,59 @@ def make_hf(n, L, basis):
         K = jnp.reshape(jnp.einsum('mpinqjl,ij,ijmnl->mpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
 
         # potential
+        phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
+        #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         if use_remat:
-            V = jax.remat(vep_int)(xp, kpt)
+            V = jax.remat(vep_int)(xp, phi)
         else:
-            V = vep_int(xp, kpt)
+            V = vep_int(xp, phi)
 
         # core Hamiltonian
         hcore = K + V
 
-        # diagonalization
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), hcore, v)
-        w1, _ = jnp.linalg.eigh(f1)
-        E = 2*jnp.sum(w1[0:n//2])
-        
-        return E * Ry # this is without vpp 
+        # intialize molecular orbital
+        mo_coeff = jnp.zeros((dim_mat, dim_mat))
+
+        # scf
+        for cycle in range(30):
+
+            # Hartree term
+            J = hartree_int(xp, kpt, phi, mo_coeff)
+
+            # Hamiltonian
+            h = hcore + J
+
+            # diagonalization
+            w, u = jnp.linalg.eigh(ovlp)
+            v = jnp.dot(u, jnp.diag(w**(-0.5)))
+            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), h, v)
+            w1, c1 = jnp.linalg.eigh(f1)
+            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+            E = jnp.sum(w1[0:n//2]) + jnp.einsum('pq,pm,qm', h, mo_coeff.conjugate(), mo_coeff)
+            print("cycle:", cycle, "E:", E * Ry)
+
+        return E * Ry # this is without vpp
+    
+    def density_matrix(mo_coeff):
+        """
+            density matrix for closed shell system.
+        """
+        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
+        return dm
+    
+    def density(dm, kpt, xp, r):
+        """ 
+            Returns density of electrons rho(r)
+        Args:
+            dm: array of shape (n_ao, n_ao), density matrix.
+            kpt: array of shape (dim,), kpoint in first Brillouin zone.
+            xp: array of shape (n, dim), position of protons.
+            r: array of shape (3,)
+        Returns:
+            rho
+        """
+        ao_value = ao(xp, r, kpt) # (n_ao,)
+        return jnp.einsum('i,j,ij', ao_value, ao_value.conjugate(), dm)
 
     return hf
 
@@ -120,20 +164,21 @@ if __name__=='__main__':
     jax.config.update("jax_enable_x64", True)
     jax.config.update("jax_debug_nans", True)
 
-    n = 16
+    n = 4
     dim = 3
     rs = 1.4
     L = (n*4./3*jnp.pi)**(1./3)*rs
 
     key = jax.random.PRNGKey(42)
     x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
-    
-    hf = make_hf(n, L , 'gth-szv')
-    f = jax.jit(jax.grad(hf))(x)
-    print (f)
+    kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
 
-    x = jnp.concatenate([x, x]).reshape(2, n, dim)
-    print (jax.vmap(hf)(x))
+    hf = make_hf(n, L , 'gth-szv')
+    E = jax.jit(hf)(x, kpt)
+    print(E)
+
+    # x = jnp.concatenate([x, x]).reshape(2, n, dim)
+    # print (jax.vmap(hf, (0, None), 0)(x, kpt))
 
     import resource
     print(f"{1e-3 * resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}MB")
