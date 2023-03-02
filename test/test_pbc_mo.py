@@ -2,7 +2,7 @@ from config import *
 from pyscf.pbc import gto, scf
 from hqc.pbc.mo import make_hf
 
-def zerovee(L, xp, basis, kpt):
+def pyscf_hf(L, xp, basis, kpt):
 
     """
         hartree fock without Vee pyscf benchmark.
@@ -28,8 +28,6 @@ def zerovee(L, xp, basis, kpt):
     # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
     kmf = scf.khf.KRHF(gtocell, kpts=kpts)
     kmf.verbose = 0
-    kmf.max_cycle = 1
-    kmf.get_veff = lambda *args: np.zeros(kmf.get_hcore().shape)
     kmf.kernel()
 
     # ovlp = kmf.get_ovlp()
@@ -59,13 +57,13 @@ def test_pbc_mo():
         # PBC energy test
         hf = make_hf(n, L, basis)
         E = hf(xp, k0)
-        E_pyscf = zerovee(L, xp, basis, k0)
+        E_pyscf = pyscf_hf(L, xp, basis, k0)
         print("E:\n", E, "\npyscf E:\n", E_pyscf)
         assert np.allclose(E, E_pyscf, rtol=1e-4)
 
         # TBC energy test
         E_twist = hf(xp, twist)
-        E_pyscf_twist = zerovee(L, xp, basis, twist)
+        E_pyscf_twist = pyscf_hf(L, xp, basis, twist)
         print("E:\n", E_twist, "\npyscf E:\n", E_pyscf_twist)
         assert np.allclose(E_twist, E_pyscf_twist, rtol=1e-4)
 

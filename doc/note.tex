@@ -119,7 +119,7 @@
     In practice, we can get PBC orbitals both from eq.\eqref{ao} and eq.\eqref{ao_ft}. 
     The summations in these two equations are done in a cutoff range.
     To compare the computational complexity of eq.\eqref{ao} and eq.\eqref{ao_ft}, 
-    we have to specify the fourier coeffcients by using eq.\eqref{ao_ft_coeff}.
+    we have to specify the fourier coefficients by using eq.\eqref{ao_ft_coeff}.
     \begin{align*}
         \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
         &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
@@ -128,7 +128,7 @@
         &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
         &= \frac{1}{\Omega}\int d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
     \end{align*}
-    For GTOs, the fourier coeffcients can be performed analytically
+    For GTOs, the fourier coefficients can be performed analytically
     \begin{equation}
         \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
     \end{equation}
@@ -137,7 +137,7 @@
     \begin{equation}
         \phi_{\textbf{k}}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}e^{-\alpha (\textbf{r}-\textbf{T})^2}\label{7}
     \end{equation}
-    On the other hand, the fourier coeffcients from eq.\eqref{ao_ft_coeff1} is
+    On the other hand, the fourier coefficients from eq.\eqref{ao_ft_coeff1} is
     \begin{equation*}
         \phi_{\textbf{k}}(\textbf{G}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]
     \end{equation*}
@@ -154,7 +154,7 @@
     In this part, we will introduce Hartree Fock method on these PBC orbitals.
     Here we use index $\mu,\nu,\sigma,\rho$ to specify atoms,
     $p,q,r,s$ to specify atomic orbitals of each atom,
-    $i,j,k,l$ to specify coeffcients of each atomic orbital,
+    $i,j,k,l$ to specify coefficients of each atomic orbital,
     $m,n$ to specify molecular orbital.
     Then the $p$ th PBC contracted GTO of $\mu$ th atom can be described as
     \begin{equation}
@@ -272,7 +272,7 @@
                 V_{\mu p,\nu q}^L(\textbf{k}) = -\sum_{\sigma}\sum_{\textbf{G}\neq 0}\sum_{ij\textbf{T}}V(\textbf{G})S_{\mu pi,\nu qj,\textbf{T}}
                 \exp\left[-i\textbf{G}\cdot(\textbf{R}_{\sigma}-\textbf{R}_{\mu i,\nu j,\textbf{T}})\right]\exp\left[-\frac{G^2}{4(\alpha_i+\alpha_j)}\right]\label{localp_real}
             \end{equation}
-            (caution: something is still wrong with this equation \eqref{localp_real}.)
+            (caution: something is still wrong with eq.\eqref{localp_real}.)
             In practice, obtaining $V(\textbf{r})$ from FFT and do numerical integration in a unit cell is a more economic way.
             \begin{equation*}
                 v^L(\textbf{r}) = \sum_{\sigma}v(\textbf{r}-\textbf{R}_{\sigma}) = 
@@ -315,27 +315,62 @@
                 V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k},p}(\textbf{G}_1)\phi_{\textbf{k},q}(\textbf{G}_2)e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
             \end{equation}         
             
-        \subsubsection{Hartree}
-            The \textbf{Hartree} term matrix element is given by
+        \subsubsection{Hartree and Exchange}
+            The \textbf{Hartree} and \textbf{Exchange} term matrix element is given by
             \begin{equation}
-                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree}
             \end{equation}
-            electron density $\rho(\textbf{r})$ for closed-shell system is given by
             \begin{equation}
-                \rho(\textbf{r}) = 2\sum_{occ}\left|\psi_{\textbf{k},m}(\textbf{r})\right|^2
+                K_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \int d\textbf{r}'\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\frac{\rho(\textbf{r},\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})\label{exchange}
             \end{equation}
-            Hartree potential
+            where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone.
+            \begin{equation}
+                \rho(\textbf{r},\textbf{r}') = \frac{2}{N_k}\sum_{\textbf{k}}\sum_m^{occ}\psi_{\textbf{k},m}(\textbf{r})\psi_{\textbf{k},m}^*(\textbf{r}')
+                = \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}'-\textbf{R}_{\sigma})
+            \end{equation}
+            and the one electron density is
+            \begin{equation}
+                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r})
+            \end{equation}
+            the density matrix is given by
+            \begin{equation}
+                P_{\lambda r,\sigma s}(\textbf{k}) = 2\sum_m^{occ}C_{\lambda r,m}(\textbf{k})C_{\sigma s,m}^*(\textbf{k})
+            \end{equation}
+            the coefficients $C_{\lambda r,m}$ are molecular orbital coefficients
+            \begin{equation}
+                \psi_{\textbf{k},m}(\textbf{r}) = \sum_{\lambda r}C_{\lambda r,m}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})
+            \end{equation} 
+            in practical code the Hartree matrix eq.\eqref{hartree} is given by
+            \begin{equation}
+                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_H(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree_code}
+            \end{equation}
+            in terms of Hartree potential
             \begin{equation}
                 v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
             \end{equation}
             where
             \begin{equation}
-                \rho(\textbf{G}) = \int_{\omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}
+                \rho(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}
+            \end{equation}
+            the exchange matrix is given by
+            \begin{equation}
+                K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k}')\int d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\mu p\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
+            \end{equation}
+            in terms of exchange potential
+            \begin{align}
+                v_{\mu p\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r}) 
+                &= \int d\textbf{r}'\ \frac{\phi_{\textbf{k}',s}^*(\textbf{r}'-\textbf{R}_{\sigma})\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})}{\left|\textbf{r}-\textbf{r}'\right|}\notag\\
+                &= \int d\textbf{r}'\ \frac{\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\notag \\
+                &= \frac{4\pi}{\Omega}\sum_{\textbf{G}}^{,}\frac{\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G})}{\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+            \end{align}
+            where
+            \begin{equation}
+                \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r}) = \phi_{\textbf{k}',s}^*(\textbf{r}'-\textbf{R}_{\sigma})\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu}) = \sum_{\textbf{G}}\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+            \end{equation}
+            \begin{equation}
+                \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G}) = \int_{\Omega}\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r})e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
 
-        \subsubsection{Exchange}
-        
-        
             
         % \subsubsection{Electron interaction}
         %     The interaction matrix element

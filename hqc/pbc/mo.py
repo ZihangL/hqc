@@ -12,6 +12,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [1.8058681460, -0.1333810052, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
+max_cycle = 10
 
 def make_hf(n, L, basis):
     """
@@ -81,6 +82,11 @@ def make_hf(n, L, basis):
         rhoG = (L/n_grid)**3*jnp.fft.fftn(rhoR.reshape(n_grid, n_grid, n_grid))
         VH = n_grid**3*jnp.fft.ifftn(VG*rhoG).reshape(-1) # (nx*ny*nz)
         return jnp.einsum('xm,x,xn->mn', phi.conjugate(), VH, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+    
+    def exchange_int():
+        """
+            Exchange matrix.
+        """
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -118,7 +124,7 @@ def make_hf(n, L, basis):
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
 
         # scf
-        for cycle in range(30):
+        for cycle in range(max_cycle):
 
             # Hartree term
             J = hartree_int(xp, kpt, phi, mo_coeff)
@@ -133,9 +139,8 @@ def make_hf(n, L, basis):
             w1, c1 = jnp.linalg.eigh(f1)
             mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
             E = jnp.sum(w1[0:n//2]) + jnp.einsum('pq,pm,qm', h, mo_coeff.conjugate(), mo_coeff)
-            print("cycle:", cycle, "E:", E * Ry)
 
-        return E * Ry # this is without vpp
+        return E.real * Ry # this is without vpp
     
     def density_matrix(mo_coeff):
         """
