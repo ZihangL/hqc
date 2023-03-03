@@ -349,9 +349,11 @@
                 v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
             \end{equation}
             where
-            \begin{equation}
-                \rho(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}
-            \end{equation}
+            \begin{align}
+                \rho(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}-\textbf{R}_{\sigma})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\sigma s\textbf{k},\nu q\textbf{k}}(\textbf{G})
+            \end{align}
             the exchange matrix is given by
             \begin{equation}
                 K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k}')\int d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\mu p\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
@@ -368,10 +370,9 @@
                 \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r}) = \phi_{\textbf{k}',s}^*(\textbf{r}'-\textbf{R}_{\sigma})\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu}) = \sum_{\textbf{G}}\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
             \begin{equation}
-                \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G}) = \int_{\Omega}\rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r})e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+                \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{\sigma s\textbf{k}',\nu q\textbf{k}}(\textbf{r})e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
 
-            
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
         %     \begin{equation}

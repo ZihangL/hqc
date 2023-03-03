@@ -63,6 +63,27 @@ def make_hf(n, L, basis):
     Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
     VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
     VG = VG.at[0,0,0].set(0)
+
+    def density_matrix(mo_coeff):
+        """
+            density matrix for closed shell system.
+        """
+        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
+        return dm
+    
+    def density(dm, kpt, xp, r):
+        """ 
+            Returns density of electrons rho(r)
+        Args:
+            dm: array of shape (n_ao, n_ao), density matrix.
+            kpt: array of shape (dim,), kpoint in first Brillouin zone.
+            xp: array of shape (n, dim), position of protons.
+            r: array of shape (3,)
+        Returns:
+            rho
+        """
+        ao_value = ao(xp, r, kpt) # (n_ao,)
+        return jnp.einsum('i,j,ij', ao_value, ao_value.conjugate(), dm)
     
     def vep_int(xp, phi):
         """ 
@@ -94,7 +115,6 @@ def make_hf(n, L, basis):
             INPUT:
                 xp: array of shape (n, dim), position of protons.
                 kpt: array of shape (dim,), kpoint in first Brillouin zone.
-
             OUTPUT:
                 energy, unit: Rydberg.
         """
@@ -129,8 +149,11 @@ def make_hf(n, L, basis):
             # Hartree term
             J = hartree_int(xp, kpt, phi, mo_coeff)
 
+            # Exchange term
+            K = exchange_int()
+
             # Hamiltonian
-            h = hcore + J
+            h = hcore + J - 0.5 * K
 
             # diagonalization
             w, u = jnp.linalg.eigh(ovlp)
@@ -142,27 +165,6 @@ def make_hf(n, L, basis):
 
         return E.real * Ry # this is without vpp
     
-    def density_matrix(mo_coeff):
-        """
-            density matrix for closed shell system.
-        """
-        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
-        return dm
-    
-    def density(dm, kpt, xp, r):
-        """ 
-            Returns density of electrons rho(r)
-        Args:
-            dm: array of shape (n_ao, n_ao), density matrix.
-            kpt: array of shape (dim,), kpoint in first Brillouin zone.
-            xp: array of shape (n, dim), position of protons.
-            r: array of shape (3,)
-        Returns:
-            rho
-        """
-        ao_value = ao(xp, r, kpt) # (n_ao,)
-        return jnp.einsum('i,j,ij', ao_value, ao_value.conjugate(), dm)
-
     return hf
 
 if __name__=='__main__':
