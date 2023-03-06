@@ -12,7 +12,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [1.8058681460, -0.1333810052, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
-max_cycle = 10
+max_cycle = 30
 
 def make_hf(n, L, basis):
     """
@@ -63,27 +63,6 @@ def make_hf(n, L, basis):
     Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
     VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
     VG = VG.at[0,0,0].set(0)
-
-    def density_matrix(mo_coeff):
-        """
-            density matrix for closed shell system.
-        """
-        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
-        return dm
-    
-    def density(dm, kpt, xp, r):
-        """ 
-            Returns density of electrons rho(r)
-        Args:
-            dm: array of shape (n_ao, n_ao), density matrix.
-            kpt: array of shape (dim,), kpoint in first Brillouin zone.
-            xp: array of shape (n, dim), position of protons.
-            r: array of shape (3,)
-        Returns:
-            rho
-        """
-        ao_value = ao(xp, r, kpt) # (n_ao,)
-        return jnp.einsum('i,j,ij', ao_value, ao_value.conjugate(), dm)
     
     def vep_int(xp, phi):
         """ 
@@ -91,23 +70,53 @@ def make_hf(n, L, basis):
         """
         SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
         vlocG = -SI * VG # (nx, ny, nz)
-        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG).reshape(-1) # (nx*ny*nz)
-        return jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG).reshape(-1) # (nx*ny*nz,)
+        vep = jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return vep
     
-    def hartree_int(xp, kpt, phi, mo_coeff):
+    def density_int(phi):
+        """
+            2 orbital density integrals.
+        """
+        rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,dim_mat,dim_mat) # (nx,ny,nz,n_ao,n_ao)
+        rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
+        return rhoG
+    
+    def density_matrix(mo_coeff):
+        """
+            density matrix for closed shell system.
+        """
+        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
+        return dm
+    
+    def hartree_int(phi, rhoG, dm):
         """
             Hartree matrix.
+            Args:
+                phi: array of shape (nx*ny*nz, n_ao), atomic orbitals
+                rhoG: array of shape (nx, ny, nz, n_ao, n_ao)
+                dm: array of shape (n_ao, n_ao), density matrix.
+            Returns:
+                hartree matrix: array of shape (n_ao, n_ao)
         """
-        dm = density_matrix(mo_coeff)
-        rhoR = jax.vmap(density, (None, None, None, 0), 0)(dm, kpt, xp, Rmesh.reshape(-1,3)) # (nx*ny*nz)
-        rhoG = (L/n_grid)**3*jnp.fft.fftn(rhoR.reshape(n_grid, n_grid, n_grid))
-        VH = n_grid**3*jnp.fft.ifftn(VG*rhoG).reshape(-1) # (nx*ny*nz)
-        return jnp.einsum('xm,x,xn->mn', phi.conjugate(), VH, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-    
-    def exchange_int():
+        rhog = jnp.einsum('mn,xyzmn->xyz', dm, rhoG) # (nx,ny,nz)
+        VH = n_grid**3*jnp.fft.ifftn(VG*rhog).reshape(-1) # (nx*ny*nz,)
+        J = jnp.einsum('xm,x,xn->mn', phi.conjugate(), VH, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return J
+
+    def exchange_int(phi, rhoG, dm):
         """
             Exchange matrix.
+            Args:
+                phi: array of shape (nx*ny*nz, n_ao), atomic orbitals
+                rhoG: array of shape (nx, ny, nz, n_ao, n_ao)
+                dm: array of shape (n_ao, n_ao), density matrix.
+            Returns:
+                exchange matrix: array of shape (n_ao, n_ao)
         """
+        VX = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
+        K = jnp.einsum('rs,xp,xqs,xr->pq', dm, phi.conjugate(), VX, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return K
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -127,10 +136,10 @@ def make_hf(n, L, basis):
         ovlp = jnp.reshape(jnp.einsum('mpinqjl->mpnq', _ovlp), (dim_mat, dim_mat))
 
         # kinetic
-        K = jnp.reshape(jnp.einsum('mpinqjl,ij,ijmnl->mpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
+        T = jnp.reshape(jnp.einsum('mpinqjl,ij,ijmnl->mpnq', _ovlp, alpha2, 3-2*jnp.einsum('ij,mnc->ijmnc', alpha2, Rmnc)), (dim_mat, dim_mat))
 
         # potential
-        phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, )
+        phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, n_ao)
         #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         if use_remat:
             V = jax.remat(vep_int)(xp, phi)
@@ -138,7 +147,10 @@ def make_hf(n, L, basis):
             V = vep_int(xp, phi)
 
         # core Hamiltonian
-        hcore = K + V
+        hcore = T + V
+
+        # Hartree & Exchange integral initialization
+        rhoG = density_int(phi)
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
@@ -146,11 +158,11 @@ def make_hf(n, L, basis):
         # scf
         for cycle in range(max_cycle):
 
-            # Hartree term
-            J = hartree_int(xp, kpt, phi, mo_coeff)
+            dm = density_matrix(mo_coeff)
 
-            # Exchange term
-            K = exchange_int()
+            # Hartree & Exchange
+            J = hartree_int(phi, rhoG, dm)
+            K = exchange_int(phi, rhoG, dm)
 
             # Hamiltonian
             h = hcore + J - 0.5 * K
@@ -162,6 +174,7 @@ def make_hf(n, L, basis):
             w1, c1 = jnp.linalg.eigh(f1)
             mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
             E = jnp.sum(w1[0:n//2]) + jnp.einsum('pq,pm,qm', h, mo_coeff.conjugate(), mo_coeff)
+            print("E:", E)
 
         return E.real * Ry # this is without vpp
     
@@ -181,7 +194,7 @@ if __name__=='__main__':
     kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
 
     hf = make_hf(n, L , 'gth-szv')
-    E = jax.jit(hf)(x, kpt)
+    E = hf(x, kpt)
     print(E)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
