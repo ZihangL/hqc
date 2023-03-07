@@ -326,12 +326,11 @@
             where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone.
             \begin{align}
                 \rho(\textbf{r},\textbf{r}') &= \frac{2}{N_k}\sum_{\textbf{k}}\sum_m^{occ}\psi_{\textbf{k},m}(\textbf{r})\psi_{\textbf{k},m}^*(\textbf{r}')\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}'-\textbf{R}_{\sigma})\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{r})
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}'-\textbf{R}_{\sigma})
             \end{align}
             and the one electron density is
             \begin{equation}
-                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r})
+                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r}) = \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{r})
             \end{equation}
             the density matrix is given by
             \begin{equation}
@@ -352,12 +351,12 @@
             where
             \begin{align}
                 \rho(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}-\textbf{R}_{\sigma})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{G})
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}-\textbf{R}_{\sigma})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{G})
             \end{align}
             the exchange matrix is given by
             \begin{equation}
-                K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k}')\int d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\nu q\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
+                K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k}')\int d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\nu q\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
             \end{equation}
             in terms of exchange potential
             \begin{align}
