@@ -31,13 +31,15 @@ def pyscf_hf(L, xp, basis, kpt):
     kmf.kernel()
 
     # ovlp = kmf.get_ovlp()
-    # K = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
+    # T = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
     # V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
     # Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
     # c2 = kmf.mo_coeff[0]
+    # dm = kmf.make_rdm1()
     # print("pyscf overlap:\n", ovlp)
-    # print("pyscf T:\n", K)
+    # print("pyscf T:\n", T)
     # print("pyscf V:\n", V)
+    # print("pyscf densigy matrix:\n", dm)
 
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 

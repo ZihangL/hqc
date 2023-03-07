@@ -2,6 +2,9 @@ import jax
 import jax.numpy as jnp
 from hqc.pbc.ao import gen_lattice, make_ao
 
+from pyscf.pbc import gto, scf
+import numpy as np
+
 Ry = 2
 const = (2 / jnp.pi)**0.75
 coeff_gthszv = jnp.array([[8.3744350009, -0.0283380461],
@@ -12,7 +15,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [1.8058681460, -0.1333810052, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
-max_cycle = 30
+max_cycle = 15
 
 def make_hf(n, L, basis):
     """
@@ -84,7 +87,7 @@ def make_hf(n, L, basis):
     
     def density_matrix(mo_coeff):
         """
-            density matrix for closed shell system.
+            density matrix for closed shell system. (Hermitian)
         """
         dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
         return dm
@@ -125,7 +128,7 @@ def make_hf(n, L, basis):
                 xp: array of shape (n, dim), position of protons.
                 kpt: array of shape (dim,), kpoint in first Brillouin zone.
             OUTPUT:
-                energy, unit: Rydberg.
+                energy without vpp, unit: Rydberg.
         """
         assert xp.shape[0] == n
 
@@ -147,55 +150,112 @@ def make_hf(n, L, basis):
             V = vep_int(xp, phi)
 
         # core Hamiltonian
-        hcore = T + V
+        Hcore = T + V
 
         # Hartree & Exchange integral initialization
         rhoG = density_int(phi)
+        print(rhoG[0,0,0])
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
+        dm = density_matrix(mo_coeff)
 
         # scf
         for cycle in range(max_cycle):
-
-            dm = density_matrix(mo_coeff)
 
             # Hartree & Exchange
             J = hartree_int(phi, rhoG, dm)
             K = exchange_int(phi, rhoG, dm)
 
             # Hamiltonian
-            h = hcore + J - 0.5 * K
+            F = Hcore + J - 0.5 * K
 
             # diagonalization
             w, u = jnp.linalg.eigh(ovlp)
             v = jnp.dot(u, jnp.diag(w**(-0.5)))
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), h, v)
-            w1, c1 = jnp.linalg.eigh(f1)
+            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+            _, c1 = jnp.linalg.eigh(f1)
+
+            # molecular orbitals and density matrix
             mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            E = jnp.sum(w1[0:n//2]) + jnp.einsum('pq,pm,qm', h, mo_coeff.conjugate(), mo_coeff)
-            print("E:", E)
+            dm = density_matrix(mo_coeff)
+
+            # energy
+            E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
+            print("E:", E.real * Ry)
+
+        # quick test
+        print("overlap:\n", ovlp)
+        print("mo_coeff:\n", mo_coeff)
+        print("density matrix:\n", dm)
+        print("J:\n", J)
+        print("K:\n", K)
+        print("F:\n", F)
 
         return E.real * Ry # this is without vpp
     
     return hf
 
+def pyscf_hf(L, xp, basis, kpt):
+
+    """
+        hartree fock without Vee pyscf benchmark.
+
+        OUTPUT:
+            energy without Vpp, unit: Ry
+    """
+    Ry = 2
+    n = xp.shape[0]
+    cell = np.eye(3)
+    gtocell = gto.Cell()
+    gtocell.unit = 'B'
+    gtocell.atom = []
+    for i in range(n):
+        gtocell.atom.append(['H', tuple(xp[i])])
+    gtocell.spin = 0
+    gtocell.basis = basis
+    gtocell.a = cell*L
+    gtocell.build()
+
+    kpts = [kpt.tolist()]
+    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
+    kmf = scf.khf.KRHF(gtocell, kpts=kpts)
+    kmf.verbose = 0
+    kmf.kernel()
+
+    # ovlp = kmf.get_ovlp()
+    Hcore = kmf.get_hcore()
+    c2 = kmf.mo_coeff[0]
+    dm = kmf.make_rdm1()
+    J, K = kmf.get_jk()
+    F = kmf.get_fock()
+    # print("pyscf overlap:\n", ovlp)
+    print("pyscf mo_coeff:\n", c2)
+    print("pyscf densigy matrix:\n", dm)
+    print("pyscf J:\n", J)
+    print("pyscf K:\n", K)
+    print("pyscf F:\n", F)
+    
+    return Ry*(kmf.e_tot - kmf.energy_nuc())
+
 if __name__=='__main__':
     jax.config.update("jax_enable_x64", True)
     jax.config.update("jax_debug_nans", True)
 
-    n = 4
-    dim = 3
     rs = 1.4
+    n, dim = 2, 3
+    basis = 'gth-szv'
     L = (n*4./3*jnp.pi)**(1./3)*rs
-
+    print("L:", L)
     key = jax.random.PRNGKey(42)
     x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
     kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    kpt = jnp.array([0,0,0])
 
-    hf = make_hf(n, L , 'gth-szv')
+    hf = make_hf(n, L, basis)
     E = hf(x, kpt)
-    print(E)
+    E_pyscf = pyscf_hf(L, x, basis, kpt)
+    print("E:\n", E, "\npyscf E:\n", E_pyscf)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
     # print (jax.vmap(hf, (0, None), 0)(x, kpt))
