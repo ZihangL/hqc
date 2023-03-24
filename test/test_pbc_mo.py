@@ -55,12 +55,13 @@ def test_pbc_mo():
 
     basis_set = ['gth-szv', 'gth-dzv']
     for basis in basis_set:
+        print("basis:", basis)
 
         # PBC energy test
         hf = make_hf(n, L, basis)
         E = hf(xp, k0)
         E_pyscf = pyscf_hf(L, xp, basis, k0)
-        print("E:\n", E, "\npyscf E:\n", E_pyscf)
+        print("\nE:\n", E, "\npyscf E:\n", E_pyscf)
         assert np.allclose(E, E_pyscf, rtol=1e-4)
 
         # TBC energy test

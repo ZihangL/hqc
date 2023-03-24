@@ -128,7 +128,7 @@ def make_hf(n, L, basis):
         VX = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
         K = jnp.einsum('rs,xp,xqs,xr->pq', dm, phi.conjugate(), VX, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         K0 = jnp.einsum('rs,xp,xqs,xr->pq', dm, phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)
-        return K+0.22578495*K0, K0
+        return K+0.22578495*K0
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -177,7 +177,7 @@ def make_hf(n, L, basis):
 
             # Hartree & Exchange
             J = hartree_int(phi, rhoG, dm)
-            K, jks = exchange_int(phi, rhoG, dm)
+            K = exchange_int(phi, rhoG, dm)
 
             # Fock matrix
             F = Hcore + J - 0.5 * K
@@ -192,98 +192,7 @@ def make_hf(n, L, basis):
 
             # energy
             E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
-            print("E:", E.real * Ry)
 
-        bands = 0.5*jnp.einsum('pq,qa,pa->a', F+Hcore, mo_coeff, mo_coeff.conjugate())
-        print("bands:", bands)
-        # quick test
-        # print("overlap:\n", ovlp)
-        # print("mo_coeff:\n", mo_coeff)
-        print("density matrix:\n", dm)
-        # print("J:\n", J)
-        print("K:\n", K)
-        # print("F:\n", F)
-
-        return E.real * Ry, K, jks # this is without vpp
+        return E.real * Ry # this is without vpp
     
     return hf
-
-def pyscf_hf(L, xp, basis, kpt):
-
-    """
-        hartree fock without Vee pyscf benchmark.
-
-        OUTPUT:
-            energy without Vpp, unit: Ry
-    """
-    Ry = 2
-    n = xp.shape[0]
-    cell = np.eye(3)
-    gtocell = gto.Cell()
-    gtocell.unit = 'B'
-    gtocell.atom = []
-    for i in range(n):
-        gtocell.atom.append(['H', tuple(xp[i])])
-    gtocell.spin = 0
-    gtocell.basis = basis
-    gtocell.a = cell*L
-    gtocell.build()
-
-    kpts = [kpt.tolist()]
-    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
-    kmf = scf.khf.KRHF(gtocell, kpts=kpts)
-    kmf.verbose = 0
-    kmf.kernel()
-
-    # ovlp = kmf.get_ovlp()
-    Hcore = kmf.get_hcore()
-    c2 = kmf.mo_coeff[0]
-    dm = kmf.make_rdm1()
-    J, K = kmf.get_jk()
-    F = kmf.get_fock()
-    # print("pyscf overlap:\n", ovlp)
-    # print("pyscf mo_coeff:\n", c2)
-    print("pyscf densigy matrix:\n", dm)
-    # print("pyscf J:\n", J)
-    print("bands pyscf:", kmf.get_bands(kpts)[0][0])
-    print("pyscf K:\n", K)
-    # print("pyscf F:\n", F)
-    
-    return Ry*(kmf.e_tot - kmf.energy_nuc()), K
-
-
-if __name__=='__main__':
-    jax.config.update("jax_enable_x64", True)
-    jax.config.update("jax_debug_nans", True)
-
-    rs = 1.4
-    n, dim = 4, 3
-    basis = 'gth-szv'
-    L = (n*4./3*jnp.pi)**(1./3)*rs
-    print("L:", L)
-    key = jax.random.PRNGKey(43)
-    x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
-
-    # basis = 'sto-3g'
-    # n, dim = 2, 3
-    # L, d = 10.0, 1.4
-    # center = np.array([L/2, L/2, L/2])
-    # offset = np.array([[d/2, 0., 0.],
-    #                 [-d/2, 0., 0.]])
-    # x = center + offset
-
-    kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
-    # kpt = jnp.array([0,0,0])
-
-    hf = make_hf(n, L, basis)
-    E, K, jks = hf(x, kpt)
-    E_pyscf, K_pyscf = pyscf_hf(L, x, basis, kpt)
-    print(jnp.mean((K_pyscf[0]-K)/jks))
-    print("E:\n", E)
-    print("pyscf E:\n", E_pyscf)
-
-    # x = jnp.concatenate([x, x]).reshape(2, n, dim)
-    # print (jax.vmap(hf, (0, None), 0)(x, kpt))
-
-    import resource
-    print(f"{1e-3 * resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}MB")
