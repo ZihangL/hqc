@@ -6,6 +6,7 @@ import pyscf.gto
 import pyscf.scf
 from hqc.pbc.ao import gen_lattice, make_ao
 
+unknown = 0.22578495
 Ry = 2
 const = (2 / jnp.pi)**0.75
 coeff_sto3g = jnp.array([[3.42525091, 0.15432897],
@@ -90,8 +91,11 @@ def make_hf(n, L, basis):
             2 orbital density integrals.
         """
         rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,dim_mat,dim_mat) # (nx,ny,nz,n_ao,n_ao)
-        rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
-        return rhoG
+        rhoG = (jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3) # (nx,ny,nz,n_ao,n_ao)
+        VR = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
+        eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)*unknown
+        return eris, eris0
     
     def density_matrix(mo_coeff):
         """
@@ -100,35 +104,29 @@ def make_hf(n, L, basis):
         dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
         return dm
     
-    def hartree_int(phi, rhoG, dm):
+    def hartree(eris, dm):
         """
             Hartree matrix.
             Args:
-                phi: array of shape (nx*ny*nz, n_ao), atomic orbitals
-                rhoG: array of shape (nx, ny, nz, n_ao, n_ao)
+                eris: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals.
                 dm: array of shape (n_ao, n_ao), density matrix.
             Returns:
                 hartree matrix: array of shape (n_ao, n_ao)
         """
-        rhog = jnp.einsum('mn,xyzmn->xyz', dm, rhoG) # (nx,ny,nz)
-        VH = n_grid**3*jnp.fft.ifftn(VG*rhog).reshape(-1) # (nx*ny*nz,)
-        J = jnp.einsum('xm,x,xn->mn', phi.conjugate(), VH, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        J = jnp.einsum('rs,prsq->pq', dm, eris)
         return J
 
-    def exchange_int(phi, rhoG, dm):
+    def exchange(eris, dm):
         """
             Exchange matrix.
             Args:
-                phi: array of shape (nx*ny*nz, n_ao), atomic orbitals
-                rhoG: array of shape (nx, ny, nz, n_ao, n_ao)
+                eris: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals.
                 dm: array of shape (n_ao, n_ao), density matrix.
             Returns:
                 exchange matrix: array of shape (n_ao, n_ao)
         """
-        VX = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
-        K = jnp.einsum('rs,xp,xqs,xr->pq', dm, phi.conjugate(), VX, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-        K0 = jnp.einsum('rs,xp,xqs,xr->pq', dm, phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)
-        return K+0.22578495*K0
+        K = jnp.einsum('rs,pqsr->pq', dm, eris)
+        return K
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -162,7 +160,7 @@ def make_hf(n, L, basis):
         Hcore = T + V
 
         # Hartree & Exchange integral initialization
-        rhoG = density_int(phi)
+        eris, eris0 = density_int(phi)
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
@@ -176,8 +174,8 @@ def make_hf(n, L, basis):
         for cycle in range(max_cycle):
 
             # Hartree & Exchange
-            J = hartree_int(phi, rhoG, dm)
-            K = exchange_int(phi, rhoG, dm)
+            J = hartree(eris, dm)
+            K = exchange(eris+eris0, dm)
 
             # Fock matrix
             F = Hcore + J - 0.5 * K
@@ -193,6 +191,86 @@ def make_hf(n, L, basis):
             # energy
             E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
 
+        print("density matrix:", dm)
         return E.real * Ry # this is without vpp
     
     return hf
+
+def pyscf_hf(L, xp, basis, kpt):
+
+    """
+        hartree fock without Vee pyscf benchmark.
+
+        OUTPUT:
+            energy without Vpp, unit: Ry
+    """
+    Ry = 2
+    n = xp.shape[0]
+    cell = np.eye(3)
+    gtocell = gto.Cell()
+    gtocell.unit = 'B'
+    gtocell.atom = []
+    for i in range(n):
+        gtocell.atom.append(['H', tuple(xp[i])])
+    gtocell.spin = 0
+    gtocell.basis = basis
+    gtocell.a = cell*L
+    gtocell.build()
+
+    kpts = [kpt.tolist()]
+    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
+    kmf = scf.khf.KRHF(gtocell, kpts=kpts)
+    kmf.verbose = 0
+    kmf.kernel()
+
+    # ovlp = kmf.get_ovlp()
+    Hcore = kmf.get_hcore()
+    c2 = kmf.mo_coeff[0]
+    dm = kmf.make_rdm1()
+    J, K = kmf.get_jk()
+    F = kmf.get_fock()
+    # print("pyscf overlap:\n", ovlp)
+    # print("pyscf mo_coeff:\n", c2)
+    print("pyscf densigy matrix:\n", dm)
+    # print("pyscf J:\n", J)
+    # print("bands pyscf:", kmf.get_bands(kpts)[0][0])
+    # print("pyscf K:\n", K)
+    # print("pyscf F:\n", F)
+    
+    return Ry*(kmf.e_tot - kmf.energy_nuc()), K
+
+
+if __name__=='__main__':
+    jax.config.update("jax_enable_x64", True)
+    jax.config.update("jax_debug_nans", True)
+
+    rs = 1.4
+    n, dim = 4, 3
+    basis = 'gth-szv'
+    L = (n*4./3*jnp.pi)**(1./3)*rs
+    print("L:", L)
+    key = jax.random.PRNGKey(43)
+    x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+
+    # basis = 'sto-3g'
+    # n, dim = 2, 3
+    # L, d = 10.0, 1.4
+    # center = np.array([L/2, L/2, L/2])
+    # offset = np.array([[d/2, 0., 0.],
+    #                 [-d/2, 0., 0.]])
+    # x = center + offset
+
+    kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    # kpt = jnp.array([0,0,0])
+
+    hf = make_hf(n, L, basis)
+    E = hf(x, kpt)
+    E_pyscf, K_pyscf = pyscf_hf(L, x, basis, kpt)
+    print("E:\n", E)
+    print("pyscf E:\n", E_pyscf)
+
+    # x = jnp.concatenate([x, x]).reshape(2, n, dim)
+    # print (jax.vmap(hf, (0, None), 0)(x, kpt))
+
+    import resource
+    print(f"{1e-3 * resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}MB")
