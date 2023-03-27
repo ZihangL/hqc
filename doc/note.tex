@@ -124,7 +124,8 @@
         \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
         &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
         &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_\Omega d\textbf{r}\ \varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
-        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}
+            \int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
         &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
         &= \frac{1}{\Omega}\int d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
     \end{align*}
@@ -143,7 +144,8 @@
     \end{equation*}
     Using eq.\eqref{ao_ft}, we can get PBC orbitals
     \begin{equation}
-        \phi_{\textbf{k}}(\textbf{r}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\sum_{\textbf{G}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{8}
+        \phi_{\textbf{k}}(\textbf{r}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\sum_{\textbf{G}}
+        \exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{8}
     \end{equation}
     Compare these two equations eq.\eqref{7} and eq.\eqref{8}, \textbf{we have this conclusion}:
     For large $\alpha$, whose atomic orbital is sharp, directly summation eq.\eqref{ao} has a faster convergence speed,
@@ -209,7 +211,8 @@
                 S_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
             For PBC s-orbital GTOs,
-            $$ \phi_{\textbf{k},p}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\sum_ic_{pi}\left(\frac{2\alpha_i}{\pi}\right)^{\frac{3}{4}}e^{-\alpha_i(\textbf{r}-\textbf{T})^2} $$
+            $$ \phi_{\textbf{k},p}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\sum_ic_{pi}\left(\frac{2\alpha_i}{\pi}\right)^{\frac{3}{4}}
+                e^{-\alpha_i(\textbf{r}-\textbf{T})^2} $$
             The result of real-space integration is   
             \begin{equation}
                 S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k}) = c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
@@ -222,13 +225,15 @@
 
             The \textbf{overlap} integral of reciprocal-space integration is
             \begin{equation}
-                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
+                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})
+                e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
             \end{equation}
 
         \subsubsection{Kinetic}
             The \textbf{kinetic} matrix element is given by
             \begin{equation}
-                T_{\mu p,\nu q}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\nabla_{\textbf{r}}^2\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                T_{\mu p,\nu q}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\nabla_{\textbf{r}}^2
+                \phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
             The result of real-space integration is  
             \begin{equation}
@@ -237,19 +242,22 @@
             \end{equation}
             The \textbf{kinetic} integral of reciprocal-space integration is
             \begin{equation}
-                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
+                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})
+                e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
             \end{equation}
 
         \subsubsection{Potential}
             The \textbf{local potential} matrix element is given by
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v^L(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                V_{\mu p,\nu q}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})
+                v^L(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
             \end{equation}
             The local potential is
             $$ v^L(\textbf{r}) = \sum_{\sigma}V(\textbf{r}-\textbf{R}_{\sigma}) = -\sum_{\sigma\textbf{T}}\frac{1}{|\textbf{r}-\textbf{R}_{\sigma}-\textbf{T}|} $$
             The two-gaussian integral has analytical result, 
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = -2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
+                V_{\mu p,\nu q}^L(\textbf{k}) = -2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}
+                F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
             \end{equation}
             where
             $$ F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1 $$
@@ -312,25 +320,30 @@
             \end{equation}
             The \textbf{local potential} integral of reciprocal-space integration is
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k},p}(\textbf{G}_1)\phi_{\textbf{k},q}(\textbf{G}_2)e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
+                V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k},p}(\textbf{G}_1)\phi_{\textbf{k},q}(\textbf{G}_2)
+                e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
             \end{equation}         
             
         \subsubsection{Hartree and Exchange}
             The \textbf{Hartree} and \textbf{Exchange} term matrix element is given by
             \begin{equation}
-                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree}
+                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})
+                \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree}
             \end{equation}
             \begin{equation}
-                K_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \int d\textbf{r}'\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\frac{\rho(\textbf{r},\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})\label{exchange}
+                K_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \int d\textbf{r}'\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})
+                \frac{\rho(\textbf{r},\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})\label{exchange}
             \end{equation}
             where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone.
             \begin{align}
                 \rho(\textbf{r},\textbf{r}') &= \frac{2}{N_k}\sum_{\textbf{k}}\sum_m^{occ}\psi_{\textbf{k},m}(\textbf{r})\psi_{\textbf{k},m}^*(\textbf{r}')\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}'-\textbf{R}_{\sigma})
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})
+                    \phi_{\textbf{k},s}^*(\textbf{r}'-\textbf{R}_{\sigma})
             \end{align}
             and the one electron density is
             \begin{equation}
-                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r}) = \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{r})
+                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r}) = \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda\sigma}
+                P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{r})
             \end{equation}
             the density matrix is given by
             \begin{equation}
@@ -342,36 +355,57 @@
             \end{equation} 
             in practical code the Hartree matrix eq.\eqref{hartree} is given by
             \begin{equation}
-                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_H(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree_code}
+                J_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})
+                v_H(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\label{hartree_code}
             \end{equation}
             in terms of Hartree potential
             \begin{equation}
-                v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
+                v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} 
+                = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
             \end{equation}
             where
             \begin{align}
                 \rho(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
-                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}-\textbf{R}_{\sigma})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\int_{\Omega}d\textbf{r}\ 
+                    \phi_{\textbf{k},r}(\textbf{r}-\textbf{R}_{\lambda})\phi_{\textbf{k},s}^*(\textbf{r}-\textbf{R}_{\sigma})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
                 &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k})\rho_{\lambda r\textbf{k},\sigma s\textbf{k}}(\textbf{G})
             \end{align}
             the exchange matrix is given by
             \begin{equation}
-                K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k}')\int d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\nu q\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
+                K_{\mu p,\nu q}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k}')\int_{\Omega} d\textbf{r}\ 
+                \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v_{\nu q\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
             \end{equation}
             in terms of exchange potential
             \begin{align}
                 v_{\nu q\textbf{k},\sigma s\textbf{k}'}^X(\textbf{r}) 
-                &= \int d\textbf{r}'\ \frac{\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})\phi_{\textbf{k}',s}^*(\textbf{r}'-\textbf{R}_{\sigma})}{\left|\textbf{r}-\textbf{r}'\right|}\notag\\
+                &= \int d\textbf{r}'\ \frac{\phi_{\textbf{k},q}(\textbf{r}'-\textbf{R}_{\nu})
+                    \phi_{\textbf{k}',s}^*(\textbf{r}'-\textbf{R}_{\sigma})}{\left|\textbf{r}-\textbf{r}'\right|}\notag\\
                 &= \int d\textbf{r}'\ \frac{\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\notag \\
-                &= \frac{4\pi}{\Omega}\sum_{\textbf{G}}^{,}\frac{\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G})}{\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+                &= \frac{4\pi}{\Omega}\sum_{\textbf{G}}^{,}\frac{\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G})}
+                    {\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{align}
             where
             \begin{equation}
-                \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{r}) = \phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\phi_{\textbf{k}',s}^*(\textbf{r}-\textbf{R}_{\sigma}) = \sum_{\textbf{G}}\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+                \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{r}) = \phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})\phi_{\textbf{k}',s}^*(\textbf{r}-\textbf{R}_{\sigma}) 
+                = \sum_{\textbf{G}}\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
             \begin{equation}
-                \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{r})e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+                \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{r})
+                e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
+            So we can get the final expression of Hartree and exchange matrix,
+            \begin{equation}
+                J_{\mu p,\nu q}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda r,\sigma s}
+                P_{\lambda r,\sigma s}(\textbf{k}') \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})
+                \sum_{\textbf{G}\neq 0}\frac{\rho_{\lambda r\textbf{k}',\sigma s\textbf{k}'}(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
+                \phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+            \end{equation}
+            \begin{equation}
+                K_{\mu p,\nu q}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{\lambda r,\sigma s}P_{\lambda r,\sigma s}(\textbf{k}')
+                \int_{\Omega} d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\sum_{\textbf{G}}^{,}\frac{\rho_{\nu q\textbf{k},\sigma s\textbf{k}'}(\textbf{G})}
+                {\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}\phi_{\textbf{k}',r}(\textbf{r}-\textbf{R}_{\lambda})
+            \end{equation}
+            
 
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
