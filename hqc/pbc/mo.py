@@ -168,15 +168,16 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
-        dm = density_matrix(mo_coeff)
+        dm = density_matrix(mo_coeff) + 0j
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
         v = jnp.dot(u, jnp.diag(w**(-0.5)))
 
-        # scf
-        for cycle in range(max_cycle):
-
+        # scf loop
+        def body_fun(carry):
+            _, E, dm = carry
+            
             # Hartree & Exchange
             J = hartree(eris, dm)
             K = exchange(eris+eris0, dm)
@@ -193,12 +194,16 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             dm = density_matrix(mo_coeff)
 
             # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
-            if (cycle > 0) and (abs(E_new - E) < tol):
-                break
-            E = E_new
+            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
+            print("E:", E_new)
+            return (E.real, E_new.real, dm)
+        
+        def cond_fun(carry):
+            return abs(carry[1] - carry[0]) > tol
+            
+        _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
 
-        return E.real * Ry # this is without vpp
+        return E # this is without vpp, unit: Ry
     
     return hf
 
