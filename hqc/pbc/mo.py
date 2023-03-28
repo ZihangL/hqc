@@ -20,15 +20,16 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [1.8058681460, -0.1333810052, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
-max_cycle = 15
 
-def make_hf(n, L, basis):
+def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
     """
         Make PBC Hartree Fock function.
         INPUT:
             n: int, number of hydrogen atoms in unit cell.
             L: float, side length of unit cell, unit: Bohr.
             basis: gto basis name, eg:'gth-szv'.
+            tol: the tolerance for convergence.
+            max_cycle: the maximum number of iterations.
 
         OUTPUT:
             hf: hartree fock function.
@@ -93,8 +94,8 @@ def make_hf(n, L, basis):
         rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,dim_mat,dim_mat) # (nx,ny,nz,n_ao,n_ao)
         rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
         VR = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
-        eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)*unknown # (n_ao, n_ao)
+        eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         return eris, eris0
     
     def density_matrix(mo_coeff):
@@ -192,7 +193,10 @@ def make_hf(n, L, basis):
             dm = density_matrix(mo_coeff)
 
             # energy
-            E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
+            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
+            if (cycle > 0) and (abs(E_new - E) < tol):
+                break
+            E = E_new
 
         return E.real * Ry # this is without vpp
     
@@ -275,6 +279,15 @@ if __name__=='__main__':
     t2 = time.time()
     print("E:", E)
     print("time:", t2-t1)
+
+    # batch test
+    # batch = 32
+    # x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
+    # kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    # E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    # t2 = time.time()
+    # print("E:", E)
+    # print("time:", t2-t1)
 
     E_pyscf = pyscf_hf(L, x, basis, kpt)
     t3 = time.time()
