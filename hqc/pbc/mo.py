@@ -91,10 +91,10 @@ def make_hf(n, L, basis):
             2 orbital density integrals.
         """
         rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,dim_mat,dim_mat) # (nx,ny,nz,n_ao,n_ao)
-        rhoG = (jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3) # (nx,ny,nz,n_ao,n_ao)
+        rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
         VR = n_grid**3*jnp.fft.ifftn(jnp.einsum('xyz,xyzmn->xyzmn',VG,rhoG), axes=(0,1,2)).reshape(-1,dim_mat,dim_mat) # (nx*ny*nz, n_ao, n_ao)
         eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-        eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)*unknown
+        eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)*unknown # (n_ao, n_ao)
         return eris, eris0
     
     def density_matrix(mo_coeff):
@@ -160,7 +160,10 @@ def make_hf(n, L, basis):
         Hcore = T + V
 
         # Hartree & Exchange integral initialization
-        eris, eris0 = density_int(phi)
+        if use_remat:
+            eris, eris0 = jax.remat(density_int)(phi)
+        else:
+            eris, eris0 = density_int(phi)
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((dim_mat, dim_mat))
@@ -191,7 +194,6 @@ def make_hf(n, L, basis):
             # energy
             E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
 
-        print("density matrix:", dm)
         return E.real * Ry # this is without vpp
     
     return hf
@@ -224,32 +226,33 @@ def pyscf_hf(L, xp, basis, kpt):
     kmf.kernel()
 
     # ovlp = kmf.get_ovlp()
-    Hcore = kmf.get_hcore()
-    c2 = kmf.mo_coeff[0]
-    dm = kmf.make_rdm1()
-    J, K = kmf.get_jk()
-    F = kmf.get_fock()
+    # Hcore = kmf.get_hcore()
+    # c2 = kmf.mo_coeff[0]
+    # dm = kmf.make_rdm1()
+    # J, K = kmf.get_jk()
+    # F = kmf.get_fock()
     # print("pyscf overlap:\n", ovlp)
     # print("pyscf mo_coeff:\n", c2)
-    print("pyscf densigy matrix:\n", dm)
+    # print("pyscf densigy matrix:\n", dm)
     # print("pyscf J:\n", J)
     # print("bands pyscf:", kmf.get_bands(kpts)[0][0])
     # print("pyscf K:\n", K)
     # print("pyscf F:\n", F)
     
-    return Ry*(kmf.e_tot - kmf.energy_nuc()), K
+    return Ry*(kmf.e_tot - kmf.energy_nuc())
 
 
 if __name__=='__main__':
+    import time
     jax.config.update("jax_enable_x64", True)
     jax.config.update("jax_debug_nans", True)
 
     rs = 1.4
-    n, dim = 4, 3
-    basis = 'gth-szv'
+    n, dim = 16, 3
+    basis = 'sto-3g'
     L = (n*4./3*jnp.pi)**(1./3)*rs
     print("L:", L)
-    key = jax.random.PRNGKey(43)
+    key = jax.random.PRNGKey(42)
     x = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     # basis = 'sto-3g'
@@ -263,11 +266,20 @@ if __name__=='__main__':
     kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
     # kpt = jnp.array([0,0,0])
 
+    t0 = time.time()
     hf = make_hf(n, L, basis)
+    t1 = time.time()
+    print("make time:", t1-t0)
+    
     E = hf(x, kpt)
-    E_pyscf, K_pyscf = pyscf_hf(L, x, basis, kpt)
-    print("E:\n", E)
-    print("pyscf E:\n", E_pyscf)
+    t2 = time.time()
+    print("E:", E)
+    print("time:", t2-t1)
+
+    E_pyscf = pyscf_hf(L, x, basis, kpt)
+    t3 = time.time()
+    print("pyscf E:", E_pyscf)
+    print("pyscf time:", t3-t2)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
     # print (jax.vmap(hf, (0, None), 0)(x, kpt))
