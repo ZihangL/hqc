@@ -2,8 +2,6 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from pyscf.pbc import gto, scf
-import pyscf.gto
-import pyscf.scf
 from hqc.pbc.ao import gen_lattice, make_ao
 
 unknown = 0.22578495
@@ -60,22 +58,26 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
     pro_alpha = jnp.einsum('i,j->ij', alpha, alpha)  # (4, 4)
     alpha2 = pro_alpha / sum_alpha  # (4, 4)
 
-    # Rmesh
-    grid = jnp.arange(n_grid) # (n_grid, ), nx = ny = nz = n_grid
-    mesh = jnp.array(jnp.meshgrid(*( [grid]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
-    Rmesh = mesh.dot(cell.T)*L/n_grid # (nx, ny, nz, 3)
-    
-    # Gmesh
-    Gmesh = mesh.dot(jnp.linalg.inv(cell))*2*jnp.pi/L # (nx, ny, nz, 3), range: (0, n_grid*2*pi/L)
-    shift = jnp.append(jnp.zeros(n_grid-n_grid//2), jnp.ones(n_grid//2))  # (n_grid, ), (0000...1111...)
-    shift3 = jnp.array(jnp.meshgrid(*( [shift]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
-    Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
-    Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
+    def make_mesh():
+        # Rmesh
+        grid = jnp.arange(n_grid) # (n_grid, ), nx = ny = nz = n_grid
+        mesh = jnp.array(jnp.meshgrid(*( [grid]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
+        Rmesh = mesh.dot(cell.T)*L/n_grid # (nx, ny, nz, 3)
+        
+        # Gmesh
+        Gmesh = mesh.dot(jnp.linalg.inv(cell))*2*jnp.pi/L # (nx, ny, nz, 3), range: (0, n_grid*2*pi/L)
+        shift = jnp.append(jnp.zeros(n_grid-n_grid//2), jnp.ones(n_grid//2))  # (n_grid, ), (0000...1111...)
+        shift3 = jnp.array(jnp.meshgrid(*( [shift]*3 ))).transpose(1,2,3,0) # (nx, ny, nz, 3)
+        Gshift = shift3.dot(jnp.linalg.inv(cell))*n_grid*2*jnp.pi/L # (nx, ny, nz, 3)
+        Gmesh -= Gshift # (nx, ny, nz, 3), range: (-n_grid*pi/L, n_grid*pi/L)
 
-    # Coulomb potential on reciprocal space
-    Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
-    VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
-    VG = VG.at[0,0,0].set(0)
+        # Coulomb potential on reciprocal space
+        Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
+        VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
+        VG = VG.at[0,0,0].set(0)
+        return Rmesh, Gmesh, VG
+    
+    Rmesh, Gmesh, VG = make_mesh()
     
     def vep_int(xp, phi):
         """ 
@@ -195,7 +197,6 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
             # energy
             E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
-            print("E:", E_new)
             return (E.real, E_new.real, dm)
         
         def cond_fun(carry):
