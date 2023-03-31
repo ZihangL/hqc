@@ -2,8 +2,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from pyscf.pbc import gto, scf
-
 from hqc.pbc.ao import gen_lattice, make_ao
+XLA_PYTHON_CLIENT_PREALLOCATE=false
 
 unknown = 0.22578495
 Ry = 2
@@ -36,6 +36,8 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
     cell = jnp.eye(3)
     n_grid = round(L / 0.12) # same with pyscf
+    n_grid3 = n_grid**3
+    Omega = jnp.linalg.det(cell)*L**3
 
     lattice = gen_lattice(cell, L)
     ao = make_ao(lattice, basis)
@@ -53,6 +55,8 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         n_ao = 2*n
         alpha = coeff_gthdzv[:, 0]  # (4,)
         coeff = coeff_gthdzv[:, 1:3].T  # (2, 4)
+
+    print("FFT tensor: ", n_grid3*n_ao**2*128/8/1024**2, "MB")
 
     # intermediate variables
     sum_alpha = alpha[:, None] + alpha[None, :]  # (4, 4)
@@ -74,7 +78,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
         # Coulomb potential on reciprocal space
         Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
-        VG = 4 * jnp.pi / jnp.linalg.det(cell) / L ** 3 / Gnorm2 # (nx, ny, nz)
+        VG = 4 * jnp.pi/Omega/Gnorm2 # (nx, ny, nz)
         VG = VG.at[0,0,0].set(0)
         return Rmesh, Gmesh, VG
     
@@ -86,21 +90,34 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         """
         SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
         vlocG = -SI * VG # (nx, ny, nz)
-        vlocR = n_grid**3 * jnp.fft.ifftn(vlocG).reshape(-1) # (nx*ny*nz,)
-        vep = jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        vlocR = n_grid3 * jnp.fft.ifftn(vlocG).reshape(-1) # (nx*ny*nz,)
+        vep = jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*Omega/n_grid3 # (n_ao, n_ao)
         return vep
     
-    def density_int(phi, phir, phis):
+    def density_int(phi):
         """
             2 orbital density integrals.
-            To save RAM, we use integral index: 'p(rs)q', where 'rs' need to be mapped
         """
-        rhoR = (phir*phis.conjugate()).reshape(n_grid,n_grid,n_grid) # (nx,ny,nz)
-        rhoG = jnp.fft.fftn(rhoR)*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz)
-        VR = n_grid**3*jnp.fft.ifftn(VG*rhoG).reshape(-1) # (nx*ny*nz)
-        eris0 = jnp.einsum('xp,x,xq->pq', phi.conjugate(), rhoG[0,0,0,None], phi)/n_grid**3*4*jnp.pi*L**2*jnp.linalg.det(cell)**(2/3)*unknown # (n_ao, n_ao)
-        eris = jnp.einsum('xp,x,xq->pq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-        return jnp.stack((eris, eris0))
+        
+        def density_int_s(carry, phis):
+            rhoR = jnp.einsum('xr,x->xr', phi, phis.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao) # (nx,ny,nz,n_ao)
+            rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*Omega/n_grid3 # (nx,ny,nz,n_ao)
+            VR = jnp.fft.ifftn(jnp.einsum('xyz,xyzr->xyzr',VG,rhoG), axes=(0,1,2)).reshape(-1,n_ao)*n_grid3 # (nx*ny*nz,n_ao)
+            eris0 = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), rhoG[0,0,0,None,:], phi)/n_grid3*4*jnp.pi*Omega**(2/3)*unknown # (n_ao,n_ao,n_ao)
+            eris = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), VR, phi)*Omega/n_grid3 # (n_ao,n_ao,n_ao)
+            return carry, jnp.stack((eris, eris0))
+        
+        _, carry = jax.lax.scan(density_int_s, 0, phi.transpose(1,0))
+        eris = carry[:,0].transpose(1,2,0,3)
+        eris0 = carry[:,1].transpose(1,2,0,3)
+
+        # rhoR = jnp.einsum('xr,xs->xrs', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao,n_ao) # (nx,ny,nz,n_ao,n_ao)
+        # rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*Omega/n_grid3 # (nx,ny,nz,n_ao,n_ao)
+        # VR = n_grid3*jnp.fft.ifftn(jnp.einsum('xyz,xyzrs->xyzrs',VG,rhoG), axes=(0,1,2)).reshape(-1,n_ao,n_ao) # (nx*ny*nz,n_ao,n_ao)
+        # eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid3*4*jnp.pi*Omega**(2/3)*unknown # (n_ao,n_ao,n_ao,n_ao)
+        # eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*Omega/n_grid3 # (n_ao,n_ao,n_ao,n_ao)
+
+        return eris, eris0
     
     def density_matrix(mo_coeff):
         """
@@ -165,13 +182,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         Hcore = T + V
 
         # Hartree & Exchange integral initialization
-        density_int1 = jax.vmap(density_int, (None, 1, None), 2)
-        if use_remat:
-            carry = jax.lax.map(lambda phis: jax.remat(density_int1)(phi, phi, phis), phi.transpose(1,0))
-        else:
-            carry = jax.lax.map(lambda phis: density_int1(phi, phi, phis), phi.transpose(1,0))
-        eris = carry[:,0].transpose(1,2,0,3)
-        eris0 = carry[:,1].transpose(1,2,0,3)
+        eris, eris0 = density_int(phi)
 
         # intialize molecular orbital
         mo_coeff = jnp.zeros((n_ao, n_ao))
@@ -263,8 +274,8 @@ if __name__=='__main__':
     jax.config.update("jax_debug_nans", True)
 
     rs = 1.4
-    n, dim = 4, 3
-    basis = 'sto-3g'
+    n, dim = 16, 3
+    basis = 'gth-szv'
     L = (n*4./3*jnp.pi)**(1./3)*rs
     print("L:", L)
     key = jax.random.PRNGKey(42)
@@ -286,24 +297,24 @@ if __name__=='__main__':
     t1 = time.time()
     print("make time:", t1-t0)
     
-    E = hf(x, kpt)
-    t2 = time.time()
-    print("E:", E)
-    print("time:", t2-t1)
-
-    # batch test
-    # batch = 32
-    # x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
-    # kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
-    # E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    # E = hf(x, kpt)
     # t2 = time.time()
     # print("E:", E)
     # print("time:", t2-t1)
 
-    E_pyscf = pyscf_hf(L, x, basis, kpt)
-    t3 = time.time()
-    print("pyscf E:", E_pyscf)
-    print("pyscf time:", t3-t2)
+    # batch test
+    batch = 32
+    x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
+    kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    t2 = time.time()
+    print("E:", E)
+    print("time:", t2-t1)
+
+    # E_pyscf = pyscf_hf(L, x, basis, kpt)
+    # t3 = time.time()
+    # print("pyscf E:", E_pyscf)
+    # print("pyscf time:", t3-t2)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
     # print (jax.vmap(hf, (0, None), 0)(x, kpt))
