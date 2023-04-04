@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 from pyscf.pbc import gto, scf
 from hqc.pbc.ao import gen_lattice, make_ao
-XLA_PYTHON_CLIENT_PREALLOCATE=false
+
 
 unknown = 0.22578495
 Ry = 2
@@ -98,24 +98,18 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         """
             2 orbital density integrals.
         """
-        
-        def density_int_s(carry, phis):
+
+        def density_int_s(phis):
             rhoR = jnp.einsum('xr,x->xr', phi, phis.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao) # (nx,ny,nz,n_ao)
             rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*Omega/n_grid3 # (nx,ny,nz,n_ao)
             VR = jnp.fft.ifftn(jnp.einsum('xyz,xyzr->xyzr',VG,rhoG), axes=(0,1,2)).reshape(-1,n_ao)*n_grid3 # (nx*ny*nz,n_ao)
             eris0 = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), rhoG[0,0,0,None,:], phi)/n_grid3*4*jnp.pi*Omega**(2/3)*unknown # (n_ao,n_ao,n_ao)
             eris = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), VR, phi)*Omega/n_grid3 # (n_ao,n_ao,n_ao)
-            return carry, jnp.stack((eris, eris0))
+            return jnp.stack((eris, eris0))
         
-        _, carry = jax.lax.scan(density_int_s, 0, phi.transpose(1,0))
+        carry = jnp.array([density_int_s(phis) for phis in phi.transpose(1,0)])
         eris = carry[:,0].transpose(1,2,0,3)
         eris0 = carry[:,1].transpose(1,2,0,3)
-
-        # rhoR = jnp.einsum('xr,xs->xrs', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao,n_ao) # (nx,ny,nz,n_ao,n_ao)
-        # rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*Omega/n_grid3 # (nx,ny,nz,n_ao,n_ao)
-        # VR = n_grid3*jnp.fft.ifftn(jnp.einsum('xyz,xyzrs->xyzrs',VG,rhoG), axes=(0,1,2)).reshape(-1,n_ao,n_ao) # (nx*ny*nz,n_ao,n_ao)
-        # eris0 = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), rhoG[0,0,0,None,:,:], phi)/n_grid3*4*jnp.pi*Omega**(2/3)*unknown # (n_ao,n_ao,n_ao,n_ao)
-        # eris = jnp.einsum('xp,xrs,xq->prsq', phi.conjugate(), VR, phi)*Omega/n_grid3 # (n_ao,n_ao,n_ao,n_ao)
 
         return eris, eris0
     
