@@ -257,7 +257,7 @@
             \end{equation}
             The local potential is
             $$ v^L(\textbf{r}) = \sum_{\sigma}V(\textbf{r}-\textbf{R}_{\sigma}) = -\sum_{\sigma\textbf{T}}\frac{1}{|\textbf{r}-\textbf{R}_{\sigma}-\textbf{T}|} $$
-            The two-gaussian integral has analytical result, 
+            The two-gaussian integral has analytical result
             \begin{equation}
                 V_{pq}^L(\textbf{k}) = -2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}
                 F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
@@ -337,7 +337,7 @@
                 K_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \int d\textbf{r}'\ \phi_{\textbf{k}p}^*(\textbf{r})
                 \frac{\rho(\textbf{r},\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k}q}(\textbf{r}')\label{exchange}
             \end{equation}
-            where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone.
+            where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone
             \begin{align}
                 \rho(\textbf{r},\textbf{r}') &= \frac{2}{N_k}\sum_{\textbf{k}}\sum_m^{occ}\psi_{\textbf{k}m}(\textbf{r})\psi_{\textbf{k}m}^*(\textbf{r}')\notag\\
                 &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{rs}P_{rs}(\textbf{k})\phi_{\textbf{k}r}(\textbf{r})
@@ -396,7 +396,7 @@
                 \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
                 e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
-            So we can get the final expression of Hartree and exchange matrix,
+            So we can get the final expression of Hartree and exchange matrix
             \begin{equation}
                 J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}
                 P_{rs}(\textbf{k}') \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})
@@ -436,16 +436,20 @@
         %         (2E_{p\mu r\gamma,q\nu s\eta}-E_{p\mu r\gamma,s\eta q\nu})C_{r\gamma,k}^*C_{s\eta,k}
         %     \end{equation}
 
-    \subsection{Solution of generalized eigenvalue problem}
-        Hamiltonian matrix element without interaction
+    \subsection{Solution of generalised eigenvalue problem}
+        Core Hamiltonian matrix element without interaction
         \begin{equation}
-            H_{pq}(\textbf{k}) = T_{pq}(\textbf{k}) + V_{pq}^L(\textbf{k})
+            \textbf{H}(\textbf{k}) = \textbf{T}(\textbf{k}) + \textbf{V}^L(\textbf{k})
+        \end{equation}
+        Fock operator
+        \begin{equation}
+            \textbf{F}(\textbf{k}) = \textbf{H}(\textbf{k})+\textbf{J}(\textbf{k})-\frac{1}{2}\textbf{K}(\textbf{k})
         \end{equation}
         Roothaan equation
         \begin{equation}
-            \textbf{HC}_k = \epsilon_k\textbf{SC}_k
+            \textbf{F}(\textbf{k})\textbf{C}(\textbf{k}) = \epsilon(\textbf{k})\textbf{S}(\textbf{k})\textbf{C}(\textbf{k})
         \end{equation}
-        These bases are not orthogonal to each other. 
+        This is a generalised eigenvalue problem since these bases are not orthogonal to each other. 
         To change the bases, solve the eigenvalue equation of $\textbf{S}$
         $$ \textbf{SU} = \textbf{Us} $$
         Then the unitary matrix $\textbf{U}$ can diagonalise $\textbf{S}$
@@ -467,25 +471,32 @@
         \begin{equation}
             \textbf{H}'\textbf{C}' = \textbf{C}'\textbf{E}
         \end{equation}
-        The ground state energy
+        Solve this eigenvalue problem then we can get the eigenvalues $\textbf{E}$ and the eigenstate $\textbf{C}'$
+        Then the eigenstate of the generalised eigenvalue problem is
         \begin{equation}
-            E_g = 2\sum_k\epsilon_k
+            \textbf{C} = \textbf{V}\textbf{C}'
         \end{equation}
+        The elements in matrix $\textbf{C}$ are coefficients transform the atomic orbitals to molecular orbitals.
+        The shape of $\textbf{C}(\textbf{k})$ is $(n_{ao}, n_{mo})$.
+        In hydrogen problem, assuming $N$ hydrogen atoms per unit cell, 
+        the HF determinant includes the $N_kN$ orbitals with the lowest eigenvalues out of all k-points.
+        We can get the density matrix
+        \begin{equation}
+            P_{rs}(\textbf{k}) = 2\sum_m^{occ}C_{rm}(\textbf{k})C_{sm}^*(\textbf{k})
+        \end{equation}
+        The energy is
+        \begin{equation}
+            E(\textbf{k}) = \frac{1}{2}\sum_{pq}\left[F_{pq}(\textbf{k})+H_{pq}(\textbf{k})\right]P_{qp}(\textbf{k})
+        \end{equation}
+        Note that the nuclear-nuclear repulsion,
+        which is computed using the Ewald expression, is excluded from this energy.
+        The molecular orbitals are
+        \begin{equation}
+            \psi_{\textbf{k}m}(\textbf{r}) = \sum_{r}C_{rm}(\textbf{k})\phi_{\textbf{k}r}(\textbf{r})
+        \end{equation} 
+
         % One method is turning the equation into 
         % $$ (\textbf{S}^{-1}\textbf{H})\textbf{C} = \textbf{CE} $$
         % Solve the new eigenvalue equation, notice that $(\textbf{S}^{-1}\textbf{H})$ is non-Hermitian matrix.\par
-        
-% \section{Molecule orbitals}
-
-\section{Wave function}
-
-% \section{Density}
-
-% \section{Gradient logpsi}
-
-% \section{Laplacian logpsi}
-
-\section*{Notation}
-
 
 \end{document}
