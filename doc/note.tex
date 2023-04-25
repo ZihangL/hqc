@@ -210,7 +210,7 @@
         and sometimes it is worthy on account of FFT.
         
         \subsubsection{Overlap}
-            The \textbf{overlap} matrix element is given by
+            The \textbf{overlap} matrix element\cite{McClain2017} is given by
             \begin{equation}
                 S_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})\phi_{\textbf{k}q}(\textbf{r})
             \end{equation}
@@ -251,7 +251,7 @@
             \end{equation}
 
         \subsubsection{Potential}
-            The \textbf{local potential} matrix element is given by
+            The \textbf{local potential} matrix element\cite{McClain2017} is given by
             \begin{equation}
                 V_{pq}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})v^L(\textbf{r})\phi_{\textbf{k}q}(\textbf{r})
             \end{equation}
@@ -329,7 +329,7 @@
             
             
         \subsubsection{Hartree and Exchange}
-            The \textbf{Hartree} and \textbf{Exchange} term matrix element is given by
+            The \textbf{Hartree} and \textbf{Exchange} term matrix element\cite{McClain2017} is given by
             \begin{equation}
                 J_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})
                 \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k}q}(\textbf{r})\label{hartree}
@@ -411,7 +411,7 @@
             \end{equation}
         \subsubsection{Range Separation}
             In the previous part, we have used a lot of fourier transform while getting Coulomb repulsion.
-            Range separation is a method to get the long-range and short-range part of Coulomb repulsion separately.
+            Range separation\cite{sun2020exact,Ye2021} is a method to get the long-range and short-range part of Coulomb repulsion separately.
             It is commonly used in the calculation of nuclear-nuclear repulsion (Ewald sum), 
             electron Coulomb repulsion and exchange and so on.
             The long-range and short-range part is separated by error function (erf) and complementary error function (erfc).
@@ -520,5 +520,8 @@
         % One method is turning the equation into 
         % $$ (\textbf{S}^{-1}\textbf{H})\textbf{C} = \textbf{CE} $$
         % Solve the new eigenvalue equation, notice that $(\textbf{S}^{-1}\textbf{H})$ is non-Hermitian matrix.\par
+
+\bibliographystyle{unsrt}
+\bibliography{refs}
 
 \end{document}
