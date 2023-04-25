@@ -414,12 +414,14 @@
             Range separation\cite{sun2020exact,Ye2021} is a method to get the long-range and short-range part of Coulomb repulsion separately.
             It is commonly used in the calculation of nuclear-nuclear repulsion (Ewald sum), 
             electron Coulomb repulsion and exchange and so on.
+            We can use error function\cite{Ye2021} or gaussian function\cite{SHIMAZAKI2016132} to separate the Coulomb potential.
+            Here we take the error function as an example.
             The long-range and short-range part is separated by error function (erf) and complementary error function (erfc).
             \begin{align}
                 {\rm erf}(x) = \frac{2}{\sqrt{\pi}}\int_{0}^{x}e^{-t^2}dt\\
                 {\rm erfc}(x) = 1-{\rm erf}(x)
             \end{align}
-            the Coulomb potential could be devided into two part
+            the Coulomb potential could be devided into two parts
             \begin{align}
                 v(\textbf{r}) &= -\sum_{\textbf{T}}\frac{1}{|\textbf{r}-\textbf{T}|} = 
                 -\sum_{\textbf{T}}\frac{{\rm erf}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|} 
@@ -431,6 +433,7 @@
             the second term is a summation on real space.
             Both parts converge faster than before.
             We can also use this trick on getting ERIs.
+
 
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
