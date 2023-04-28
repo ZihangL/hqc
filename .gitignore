@@ -4,4 +4,6 @@ doc/*.dvi
 doc/*.log
 doc/*.out
 doc/*.gz
+doc/*.bbl
+doc/*.blg
 *.egg-info
