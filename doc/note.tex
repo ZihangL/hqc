@@ -397,17 +397,15 @@
                 \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
                 e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
-            So we can get the final expression of Hartree and exchange matrix
+            So we can get the expression of Hartree and exchange matrix
             \begin{equation}
                 J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}
-                P_{rs}(\textbf{k}') \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})
-                \sum_{\textbf{G}\neq 0}\frac{\rho_{r\textbf{k}',s\textbf{k}'}(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
-                \phi_{\textbf{k}q}(\textbf{r})
+                P_{rs}(\textbf{k}')\sum_{\textbf{G}\neq 0}\frac{\rho_{r\textbf{k}',s\textbf{k}'}(\textbf{G})\rho_{q\textbf{k},p\textbf{k}}(-\textbf{G})}{G^2}
             \end{equation}
             \begin{equation}
                 K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}P_{rs}(\textbf{k}')
-                \int_{\Omega} d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})\sum_{\textbf{G}}^{,}\frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})}
-                {\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}\phi_{\textbf{k}'r}(\textbf{r})
+                \sum_{\textbf{G}}^{,}\frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})
+                \rho_{r\textbf{k}',p\textbf{k}}(-\textbf{G})}{\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}
             \end{equation}
         \subsubsection{Range Separation}
             In the previous part, we have used a lot of fourier transform while getting Coulomb repulsion.
@@ -432,7 +430,12 @@
             The first term is a summation of all reciprocal lattice vector,
             the second term is a summation on real space.
             Both parts converge faster than before.
-            We can also use this trick on getting ERIs.
+            We can also use this trick on getting electron repulsion integrals (ERIs).
+            
+
+        
+        \subsubsection{Density Fitting}
+            Density fitting (DF) or resolution of identity (RI) approximation is a method to approximate the four-index ERIs by two- and three-index tensors.
 
 
         % \subsubsection{Electron interaction}
