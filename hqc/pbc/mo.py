@@ -98,21 +98,18 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         """
             2 orbital density integrals.
         """
-
-        def density_int_s(phis):
-            rhoR = jnp.einsum('xr,x->xr', phi, phis.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao) # (nx,ny,nz,n_ao)
-            rhoG = jnp.fft.fftn(rhoR, axes=(0, 1, 2))*Omega/n_grid3 # (nx,ny,nz,n_ao)
-            VR = jnp.fft.ifftn(jnp.einsum('xyz,xyzr->xyzr',VG,rhoG), axes=(0,1,2)).reshape(-1,n_ao)*n_grid3 # (nx*ny*nz,n_ao)
-            eris0 = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), rhoG[0,0,0,None,:], phi)/n_grid3*4*jnp.pi*Omega**(2/3)*unknown # (n_ao,n_ao,n_ao)
-            eris = jnp.einsum('xp,xr,xq->prq', phi.conjugate(), VR, phi)*Omega/n_grid3 # (n_ao,n_ao,n_ao)
-            return jnp.stack((eris, eris0))
-        
-        carry = jnp.array([density_int_s(phis) for phis in phi.transpose(1,0)])
-        eris = carry[:,0].transpose(1,2,0,3)
-        eris0 = carry[:,1].transpose(1,2,0,3)
-
+        rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao,n_ao) # (nx,ny,nz,n_ao,n_ao)
+        rhoG = jnp.fft.fftn(rhoR, axes=(0,1,2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
+        eris0 = jnp.einsum('rs,qp->prsq', rhoG[0,0,0], rhoG[0,0,0])*4*jnp.pi/L/jnp.linalg.det(cell)**(1/3)*unknown
+        eris = jnp.einsum('x,xrs,xqp->prsq', VG[1:,0,0], rhoG[1:,0,0], jnp.flip(rhoG[1:,0,0],0)) \
+             + jnp.einsum('y,yrs,yqp->prsq', VG[0,1:,0], rhoG[0,1:,0], jnp.flip(rhoG[0,1:,0],0)) \
+             + jnp.einsum('z,zrs,zqp->prsq', VG[0,0,1:], rhoG[0,0,1:], jnp.flip(rhoG[0,0,1:],0)) \
+             + jnp.einsum('yz,yzrs,yzqp->prsq', VG[0,1:,1:], rhoG[0,1:,1:], jnp.flip(rhoG[0,1:,1:],(0,1))) \
+             + jnp.einsum('xz,xzrs,xzqp->prsq', VG[1:,0,1:], rhoG[1:,0,1:], jnp.flip(rhoG[1:,0,1:],(0,1))) \
+             + jnp.einsum('xy,xyrs,xyqp->prsq', VG[1:,1:,0], rhoG[1:,1:,0], jnp.flip(rhoG[1:,1:,0],(0,1))) \
+             + jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG[1:,1:,1:], rhoG[1:,1:,1:], jnp.flip(rhoG[1:,1:,1:],(0,1,2)))
         return eris, eris0
-    
+
     def density_matrix(mo_coeff):
         """
             density matrix for closed shell system. (Hermitian)
@@ -268,7 +265,7 @@ if __name__=='__main__':
     jax.config.update("jax_debug_nans", True)
 
     rs = 1.4
-    n, dim = 16, 3
+    n, dim = 4, 3
     basis = 'gth-szv'
     L = (n*4./3*jnp.pi)**(1./3)*rs
     print("L:", L)
@@ -291,24 +288,24 @@ if __name__=='__main__':
     t1 = time.time()
     print("make time:", t1-t0)
     
-    # E = hf(x, kpt)
-    # t2 = time.time()
-    # print("E:", E)
-    # print("time:", t2-t1)
-
-    # batch test
-    batch = 32
-    x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
-    kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
-    E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    E = hf(x, kpt)
     t2 = time.time()
     print("E:", E)
     print("time:", t2-t1)
 
-    # E_pyscf = pyscf_hf(L, x, basis, kpt)
-    # t3 = time.time()
-    # print("pyscf E:", E_pyscf)
-    # print("pyscf time:", t3-t2)
+    # # batch test
+    # batch = 32
+    # x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
+    # kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    # E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    # t2 = time.time()
+    # print("E:", E)
+    # print("time:", t2-t1)
+
+    E_pyscf = pyscf_hf(L, x, basis, kpt)
+    t3 = time.time()
+    print("pyscf E:", E_pyscf)
+    print("pyscf time:", t3-t2)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
     # print (jax.vmap(hf, (0, None), 0)(x, kpt))

@@ -1,7 +1,5 @@
 __pycache__/
 doc/*.aux
 doc/*.dvi
-doc/*.log
-doc/*.out
 doc/*.gz
 *.egg-info

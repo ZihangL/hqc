@@ -5,6 +5,7 @@ note.pdf: note.tex refs.bib
 	bibtex note.aux
 	pdflatex note.tex
 	pdflatex note.tex
+	rm -f *.aux *.log *.out *.bbl *.blg
 
 .PHONY: clean
 clean:
