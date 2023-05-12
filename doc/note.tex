@@ -300,7 +300,7 @@
             \end{equation}
             In order to get local potential on the uniform grid in a unit cell, 
             we need do FFT on reciprocal lattice $\textbf{G}$.
-            Take the 1D situation as an example.
+            Take the 1D case as an example.
             The 1D uniform grid in a unit cell $L$ is
             $$ 0,\frac{L}{n},\frac{2L}{n},\dots,\frac{(N-1)L}{n} $$
             The 1D reciprocal lattice is
@@ -393,10 +393,12 @@
                 \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r}) = \phi_{\textbf{k}q}(\textbf{r})\phi_{\textbf{k}'s}^*(\textbf{r}) 
                 = \sum_{\textbf{G}}\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
             \end{equation}
-            \begin{equation}
-                \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) = \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
-                e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
-            \end{equation}
+            \begin{align}
+                \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
+                e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}\\
+                & = \sum_{\textbf{T}}e^{i\textbf{k}'\cdot\textbf{T}}\int d\textbf{r}\ \varphi_q(\textbf{r})
+                \varphi_s^*(\textbf{r}-\textbf{T})e^{-i(\textbf{G}+\textbf{k}'-\textbf{k})\cdot\textbf{r}}
+            \end{align}
             So we can get the expression of Hartree and exchange matrix
             \begin{equation}
                 J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}
@@ -407,6 +409,28 @@
                 \sum_{\textbf{G}}^{,}\frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})
                 \rho_{r\textbf{k}',p\textbf{k}}(-\textbf{G})}{\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}
             \end{equation}
+            If we just need the HF result on a \textbf{single k-point},
+            the Hartree and exchange matrix turn out to be quite easy.
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})
+                \sum_{\textbf{G}\neq 0}\frac{\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})}{G^2}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})
+                \sum_{\textbf{G}\neq 0}\frac{\rho_{qs}(\textbf{G})\rho_{rp}(-\textbf{G})}{G^2}
+            \end{equation}
+            define the four-center two-electron repulsion integrals
+            \begin{equation}
+                (pr|sq)_{\textbf{k}} = \sum_{\textbf{G}\neq 0}\frac{\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})}{G^2}
+            \end{equation}
+            Then
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})(pr|sq)_{\textbf{k}}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})(pq|sr)_{\textbf{k}}
+            \end{equation}
+
         \subsubsection{Range Separation}
             In the previous part, we have used a lot of fourier transform while getting Coulomb repulsion.
             Range separation\cite{sun2020exact,Ye2021} is a method to get the long-range and short-range part of Coulomb repulsion separately.
@@ -420,17 +444,33 @@
                 {\rm erfc}(x) = 1-{\rm erf}(x)
             \end{align}
             the Coulomb potential could be devided into two parts
+            \begin{equation}
+                \frac{1}{r} = \frac{{\rm erf}(r)}{r} + \frac{{\rm erfc}(r)}{r}
+            \end{equation}
+            and the Coulomb potential of PBC system
             \begin{align}
                 v(\textbf{r}) &= -\sum_{\textbf{T}}\frac{1}{|\textbf{r}-\textbf{T}|} = 
                 -\sum_{\textbf{T}}\frac{{\rm erf}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|} 
                 -\sum_{\textbf{T}}\frac{{\rm erfc}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|}\notag\\
                 &= -\frac{4\pi}{\Omega}\sum_{\textbf{G}}\frac{\exp\left(-\frac{G^2}{4\omega}\right)}{G^2}e^{i\textbf{G}\cdot\textbf{r}} 
-                -\sum_{\textbf{T}}\frac{{\rm erfc}(\omega x)}{|\textbf{r}-\textbf{T}|}
+                -\sum_{\textbf{T}}\frac{{\rm erfc}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|}
             \end{align} 
             The first term is a summation of all reciprocal lattice vector,
             the second term is a summation on real space.
             Both parts converge faster than before.
             We can also use this trick on getting electron repulsion integrals (ERIs).
+            Take the \textbf{single k-point} case as an example
+            \begin{align}
+                (pr|sq)_{textbf{k}} &= \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}
+                \frac{\exp(-\frac{G^2}{4\omega})}{G^2}\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})\notag\\
+                &+ \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
+                \frac{{\rm erfc}(\omega\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|)}{\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|}
+                \rho_{qp}(\textbf{r})\rho_{rs}(\textbf{r}')
+            \end{align}
+            The first term is the long-range (LR) term.
+            Less $\textbf{G}$ is required to converge the integrals due to the factor $\exp(-\frac{G^2}{4\omega}$.
+            The second term is the short-range (SR) term.
+            
             
 
         
