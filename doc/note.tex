@@ -470,6 +470,21 @@
             The first term is the long-range (LR) term.
             Less $\textbf{G}$ is required to converge the integrals due to the factor $\exp(-\frac{G^2}{4\omega})$.
             The second term is the short-range (SR) term.
+            The short-range Coulomb potential $\frac{{\rm erfc}(\omega r)}{r}$ has the inverse fourier transform form
+            \begin{equation}
+                \frac{{\rm erfc}(\omega r)}{r} = \frac{1}{(2\pi)^3}\int d\textbf{k}\ \frac{4\pi}{k^2}\left[1-e^{\frac{k^2}{4\omega^2}}\right]e^{i\textbf{k}\cdot\textbf{r}}
+            \end{equation}
+            So the short-range (SR) term 
+            \begin{align}
+                (pr|sq)_{\textbf{k}}^{SR} &= \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
+                \frac{{\rm erfc}(\omega\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|)}{\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|}
+                \rho_{qp}(\textbf{r})\rho_{rs}(\textbf{r}')\notag\\
+                &= \frac{1}{(2\pi)^3}\sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}
+                \iiint d\textbf{r}d\textbf{r}'d\textbf{k}_1\ \varphi_p^*(\textbf{r})\varphi_q(\textbf{r}-\textbf{T}_1)
+                \varphi_s^*(\textbf{r}')\varphi_r(\textbf{r}'-\textbf{T}_2)
+                \frac{4\pi}{k_1^2}\left[1-e^{\frac{k_1^2}{4\omega^2}}\right]e^{i\textbf{k}_1\cdot(\textbf{r}-\textbf{r}'+\textbf{T})}\notag\\
+                &= 
+            \end{align}
             
                 
 
@@ -594,7 +609,7 @@
         \begin{equation}
             \mathcal{F}[V(\textbf{r})] = \frac{4\pi}{k^2}
         \end{equation}
-        In the same way, for the short range Coulomb potential
+        In the same way, for the short-range Coulomb potential
         \begin{equation}
             V^{SR}(\textbf{r}) = \frac{{\rm erfc}(\omega r)}{r}
         \end{equation}
@@ -603,7 +618,7 @@
             \mathcal{F}[V^{SR}(\textbf{r})] &= \int \frac{{\rm erfc}(\omega r)}{r} e^{-i\textbf{k}\cdot\textbf{r}} d^3r\notag\\
             &= \frac{2\pi}{ik} \int_0^\infty dr\ {\rm erfc}(\omega r)\left[e^{ikr}-e^{-ikr}\right]\notag\\
             &= \frac{4\pi}{k} \int_0^\infty dr\ {\rm erfc}(\omega r)\sin(kr)\notag\\
-            &= \frac{4\pi}{k^2} \left[1-e^{-\frac{k^2}{4\omega^2}}\right]\notag\\
+            &= \frac{4\pi}{k^2} \left[1-e^{-\frac{k^2}{4\omega^2}}\right]
         \end{align}
         
 \end{document}
