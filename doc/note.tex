@@ -263,7 +263,9 @@
                 F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
             \end{equation}
             where
-            $$ F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1 $$
+            \begin{equation}
+                F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1\label{F0}
+            \end{equation}
             and some shorthand symbols
             $$ \textbf{R}_{\sigma,\textbf{T}} = \textbf{R}_{\sigma}-\textbf{T} $$
             $$ \textbf{R}_{\mu i,\nu j,\textbf{T}} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,\textbf{T}}}{\alpha_i+\alpha_j} $$
@@ -397,7 +399,10 @@
                 \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
                 e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}\\
                 & = \sum_{\textbf{T}}e^{i\textbf{k}'\cdot\textbf{T}}\int d\textbf{r}\ \varphi_q(\textbf{r})
-                \varphi_s^*(\textbf{r}-\textbf{T})e^{-i(\textbf{G}+\textbf{k}'-\textbf{k})\cdot\textbf{r}}
+                \varphi_s^*(\textbf{r}-\textbf{T})e^{-i(\textbf{G}+\textbf{k}'-\textbf{k})\cdot\textbf{r}}\\
+                & = \left(\frac{2\sqrt{\alpha_s\alpha_q}}{\alpha_s+\alpha_q}\right)^{\frac{3}{2}}e^{-\frac{G^2}{4(\alpha_s+\alpha_q)}}
+                \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}e^{-\alpha_{sq}|\textbf{R}_s-\textbf{R}_q-\textbf{T}|^2}
+                e^{-\frac{i\textbf{G}}{\alpha_s+\alpha_q}\cdot\left[\alpha_s\textbf{R}_s+\alpha_q(\textbf{R}_q+\textbf{T})\right]}
             \end{align}
             So we can get the expression of Hartree and exchange matrix
             \begin{equation}
@@ -472,22 +477,33 @@
             The second term is the short-range (SR) term.
             The short-range Coulomb potential $\frac{{\rm erfc}(\omega r)}{r}$ has the inverse fourier transform form
             \begin{equation}
-                \frac{{\rm erfc}(\omega r)}{r} = \frac{1}{(2\pi)^3}\int d\textbf{k}\ \frac{4\pi}{k^2}\left[1-e^{\frac{k^2}{4\omega^2}}\right]e^{i\textbf{k}\cdot\textbf{r}}
+                \frac{{\rm erfc}(\omega r)}{r} = \frac{1}{(2\pi)^3}\int d\textbf{k}\ \frac{4\pi}{k^2}\left[1-e^{-\frac{k^2}{4\omega^2}}\right]e^{i\textbf{k}\cdot\textbf{r}}
             \end{equation}
             So the short-range (SR) term 
             \begin{align}
-                (pr|sq)_{\textbf{k}}^{SR} &= \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
+                &(pr|sq)_{\textbf{k}}^{SR} = \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
                 \frac{{\rm erfc}(\omega\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|)}{\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|}
                 \rho_{qp}(\textbf{r})\rho_{rs}(\textbf{r}')\notag\\
                 &= \frac{1}{(2\pi)^3}\sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}
                 \iiint d\textbf{r}d\textbf{r}'d\textbf{k}_1\ \varphi_p^*(\textbf{r})\varphi_q(\textbf{r}-\textbf{T}_1)
                 \varphi_s^*(\textbf{r}')\varphi_r(\textbf{r}'-\textbf{T}_2)
-                \frac{4\pi}{k_1^2}\left[1-e^{\frac{k_1^2}{4\omega^2}}\right]e^{i\textbf{k}_1\cdot(\textbf{r}-\textbf{r}'+\textbf{T})}\notag\\
-                &= 
+                \frac{4\pi}{k_1^2}\left[1-e^{-\frac{k_1^2}{4\omega^2}}\right]e^{i\textbf{k}_1\cdot(\textbf{r}-\textbf{r}'+\textbf{T})}\notag\\
+                &= \frac{4}{\pi^2}\left[\frac{(\alpha_p\alpha_q\alpha_s\alpha_r)^{\frac{1}{2}}}{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}\right]^{\frac{3}{2}}
+                \sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}
+                \int d\textbf{k}_1\ \frac{1}{k_1^2}\left[1-e^{-\frac{k_1^2}{4\omega^2}}\right]
+                e^{-\frac{\alpha_p+\alpha_q+\alpha_r+\alpha_s}{4(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}k_1^2}
+                e^{i\textbf{k}_1\cdot(\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T})}\notag\\
+                &= \frac{16}{\sqrt{\pi}}\left[\frac{(\alpha_p\alpha_q\alpha_s\alpha_r)^{\frac{1}{2}}}{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}\right]^{\frac{3}{2}}
+                \sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}\notag\\
+                &\qquad\quad\left[\sqrt{\gamma_{pqrs}}F_0(\gamma_{pqrs}\left|\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T}\right|^2)
+                -\sqrt{\frac{\gamma_{pqrs}\omega^2}{\gamma_{pqrs}+\omega^2}}F_0(\frac{\gamma_{pqrs}\omega^2}{\gamma_{pqrs}+\omega^2}
+                \left|\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T}\right|^2)\right]
             \end{align}
+            where $F_0(x)$ follows eq.\eqref{F0}, and $\gamma_{pqrs}$ is
+            \begin{equation}
+                \gamma_{pqrs} = \frac{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}{\alpha_p+\alpha_q+\alpha_r+\alpha_s}
+            \end{equation}
             
-                
-
         
         \subsubsection{Density Fitting}
             Density fitting (DF) or resolution of identity (RI) approximation is a method to approximate the four-index ERIs by two- and three-index tensors.
