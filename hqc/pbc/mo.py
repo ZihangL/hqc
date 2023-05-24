@@ -4,7 +4,7 @@ import numpy as np
 from pyscf.pbc import gto, scf
 from hqc.pbc.ao import gen_lattice, make_ao
 
-
+omg = 1
 unknown = 0.22578495
 Ry = 2
 const = (2 / jnp.pi)**0.75
@@ -80,6 +80,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         Gnorm2 = jnp.sum(jnp.square(Gmesh), axis=3)
         VG = 4 * jnp.pi/Omega/Gnorm2 # (nx, ny, nz)
         VG = VG.at[0,0,0].set(0)
+        VG_lr = VG * jnp.exp(-Gnorm2/4/omg)
         return Rmesh, Gmesh, VG
     
     Rmesh, Gmesh, VG = make_mesh()
