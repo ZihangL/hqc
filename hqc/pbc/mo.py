@@ -121,8 +121,8 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
                 density (dtype: float)
         """
         phi = ao(xp, r, kpt) # (n_ao,)
-        dst = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
-        return jnp.float64(dst.real)
+        dens = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
+        return jnp.float64(dens.real)
     
     def dft_xc(xp, dm):
         """
@@ -135,6 +135,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         lda_x = jax_xc.lda_x(polarized=False)
         lda_x_r = lambda R: lda_x(density_r, R)
         E_xc = jax.vmap(lda_x_r)(Rmesh.reshape(-1, 3))
+        # E_xc = jnp.array([lda_x_r(R) for R in Rmesh.reshape(-1, 3)])
         return E_xc
 
     def hartree(eris, dm):
@@ -195,8 +196,11 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
         v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        for cycle in range(max_cycle):
+            
+        # scf loop
+        def body_fun(carry):
+            _, E, dm = carry
+            
             # Hartree & Exchange
             J = hartree(eris, dm)
             xc = dft_xc(xp, dm)
@@ -214,34 +218,13 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             dm = density_matrix(mo_coeff)
 
             # energy
-            E = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
-            
-        # # scf loop
-        # def body_fun(carry):
-        #     _, E, dm = carry
-            
-        #     # Hartree & Exchange
-        #     J = hartree(eris, dm)
-
-        #     # Fock matrix
-        #     F = Hcore + J
-
-        #     # diagonalization
-        #     f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-        #     _, c1 = jnp.linalg.eigh(f1)
-
-        #     # molecular orbitals and density matrix
-        #     mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        #     dm = density_matrix(mo_coeff)
-
-        #     # energy
-        #     E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
-        #     return (E.real, E_new.real, dm)
+            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
+            return (E.real, E_new.real, dm)
         
-        # def cond_fun(carry):
-        #     return abs(carry[1] - carry[0]) > tol
+        def cond_fun(carry):
+            return abs(carry[1] - carry[0]) > tol
             
-        # _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
+        _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
 
         return E # this is without vpp, unit: Ry
     
