@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from jax import vmap, grad
 import numpy as np
-from pyscf.pbc import gto, scf
+from pyscf.pbc import gto, dft
 from hqc.pbc.ao import gen_lattice, make_ao
 import jax_xc
 
@@ -121,13 +121,13 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
     
     def density(xp, dm, r):
         """
-            Return density function.
+            density at r.
             Args:
                 xp: array of shape (n, dim), position of protons.
                 dm: array of shape (n_ao, n_ao), density matrix.
                 r: array of shape (dim,)
             Returns:
-                density (dtype: float)
+                density at r (dtype: float)
         """
         phi = ao(xp, r, kpt) # (n_ao,)
         dens = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
@@ -198,7 +198,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
         # potential
         phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, n_ao)
-        #phi = vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
+        # phi = vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         if use_remat:
             V = jax.remat(vep_int)(xp, phi)
         else:
@@ -256,10 +256,9 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
     
     return hf
 
-def pyscf_hf(L, xp, basis, kpt):
-
+def pyscf_dft(L, xp, basis, kpt):
     """
-        hartree fock without Vee pyscf benchmark.
+        dft pyscf benchmark.
 
         OUTPUT:
             energy without Vpp, unit: Ry
@@ -278,24 +277,15 @@ def pyscf_hf(L, xp, basis, kpt):
     gtocell.build()
 
     kpts = [kpt.tolist()]
-    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
-    kmf = scf.khf.KRHF(gtocell, kpts=kpts)
+    kmf = dft.krks.KRKS(gtocell, kpts=kpts)
+    kmf.xc = 'lda,'
+    kmf = kmf.density_fit()
+    kmf = kmf.newton()
     kmf.verbose = 0
     kmf.kernel()
 
-    # ovlp = kmf.get_ovlp()
-    # Hcore = kmf.get_hcore()
-    # c2 = kmf.mo_coeff[0]
     dm = kmf.make_rdm1()
-    # J, K = kmf.get_jk()
-    # F = kmf.get_fock()
-    # print("pyscf overlap:\n", ovlp)
-    # print("pyscf mo_coeff:\n", c2)
     print("pyscf densigy matrix:\n", dm)
-    # print("pyscf J:\n", J)
-    # print("bands pyscf:", kmf.get_bands(kpts)[0][0])
-    # print("pyscf K:\n", K)
-    # print("pyscf F:\n", F)
     
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
@@ -321,8 +311,8 @@ if __name__=='__main__':
     #                 [-d/2, 0., 0.]])
     # x = center + offset
 
-    kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
-    # kpt = jnp.array([0,0,0])
+    # kpt = jax.random.uniform(key, (dim,), minval=-jnp.pi/L, maxval=jnp.pi/L)
+    kpt = jnp.array([0,0,0])
 
     t0 = time.time()
     hf = make_hf(n, L, basis)
@@ -343,7 +333,7 @@ if __name__=='__main__':
     # print("E:", E)
     # print("time:", t2-t1)
 
-    E_pyscf = pyscf_hf(L, x, basis, kpt)
+    E_pyscf = pyscf_dft(L, x, basis, kpt)
     t3 = time.time()
     print("pyscf E:", E_pyscf)
     print("pyscf time:", t3-t2)
