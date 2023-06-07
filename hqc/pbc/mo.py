@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+from jax import vmap, grad
 import numpy as np
 from pyscf.pbc import gto, scf
 from hqc.pbc.ao import gen_lattice, make_ao
@@ -96,6 +97,10 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         """
             2 orbital density integrals.
             To save RAM, we use integral index: 'p(rs)q', where 'rs' need to be mapped
+            Args:
+                phi: array of shape (nx*ny*nz,, n_ao), wave function.
+            Returns:
+                eris: array of shape (n_ao, n_ao)
         """
         rhoR = (phir*phis.conjugate()).reshape(n_grid,n_grid,n_grid) # (nx,ny,nz)
         rhoG = jnp.fft.fftn(rhoR)*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz)
@@ -106,6 +111,10 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
     def density_matrix(mo_coeff):
         """
             density matrix for closed shell system. (Hermitian)
+            Args:
+                mo_coeff: array of shape (n_ao, n_mo), molecular coefficients.
+            Returns:
+                dm: array of shape (n_ao, n_ao), density matrix.
         """
         dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
         return dm
@@ -124,19 +133,36 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         dens = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
         return jnp.float64(dens.real)
     
-    def dft_xc(xp, dm):
+    def v_xc(xp, dm, r):
+        """
+            Return Vxc.
+            Args:
+                xp: array of shape (n, dim), position of protons.
+                dm: array of shape (n_ao, n_ao), density matrix.
+                r: array of shape (dim,)
+            Returns:
+                Vxc (dtype: float)
+        """
+        density_r = lambda r: density(xp, dm, r)
+        lda_x = jax_xc.lda_x(polarized=False)
+        lda_x_r = lambda R: lda_x(density_r, R)
+        V_xc = lda_x_r(r)+density_r(r)*jnp.dot(grad(lda_x_r)(r),1/grad(density_r)(r))
+        return V_xc
+
+    def dft_xc(xp, dm, phi):
         """
             Return the DFT exchange correlation matrix.
             Args:
                 xp: array of shape (n, dim), position of protons.
                 dm: array of shape (n_ao, n_ao), density matrix.
+                phi: array of shape (nx*ny*nz,, n_ao), wave function.
+            Returns:
+                XC: array of shape (n_ao, n_ao), exchange correlation matrix.
         """
-        density_r = lambda r: density(xp, dm, r)
-        lda_x = jax_xc.lda_x(polarized=False)
-        lda_x_r = lambda R: lda_x(density_r, R)
-        E_xc = jax.vmap(lda_x_r)(Rmesh.reshape(-1, 3))
-        # E_xc = jnp.array([lda_x_r(R) for R in Rmesh.reshape(-1, 3)])
-        return E_xc
+        v_xc_r = lambda r: v_xc(xp, dm, r)
+        v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3))
+        XC = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return XC
 
     def hartree(eris, dm):
         """
@@ -172,7 +198,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
         # potential
         phi = jax.lax.map(lambda xe: ao(xp, xe, kpt), Rmesh.reshape(-1, 3)) # (nx*ny*nz, n_ao)
-        #phi = jax.vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
+        #phi = vmap(ao, (None, 0), 0)(xp, Rmesh.reshape(-1, 3))
         if use_remat:
             V = jax.remat(vep_int)(xp, phi)
         else:
@@ -182,7 +208,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         Hcore = T + V
 
         # Hartree & Exchange integral initialization
-        density_int1 = jax.vmap(density_int, (None, 1, None), 2)
+        density_int1 = vmap(density_int, (None, 1, None), 2)
         if use_remat:
             carry = jax.lax.map(lambda phis: jax.remat(density_int1)(phi, phi, phis), phi.transpose(1,0))
         else:
@@ -201,13 +227,12 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
         def body_fun(carry):
             _, E, dm = carry
             
-            # Hartree & Exchange
+            # Hartree & Exchange-Correlation
             J = hartree(eris, dm)
-            xc = dft_xc(xp, dm)
-            print("xc:\n", xc)
+            XC = dft_xc(xp, dm, phi)
 
             # Fock matrix
-            F = Hcore + J
+            F = Hcore + J + XC
 
             # diagonalization
             f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
@@ -225,6 +250,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             return abs(carry[1] - carry[0]) > tol
             
         _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
+        print("dft dm:\n", dm)
 
         return E # this is without vpp, unit: Ry
     
@@ -260,12 +286,12 @@ def pyscf_hf(L, xp, basis, kpt):
     # ovlp = kmf.get_ovlp()
     # Hcore = kmf.get_hcore()
     # c2 = kmf.mo_coeff[0]
-    # dm = kmf.make_rdm1()
+    dm = kmf.make_rdm1()
     # J, K = kmf.get_jk()
     # F = kmf.get_fock()
     # print("pyscf overlap:\n", ovlp)
     # print("pyscf mo_coeff:\n", c2)
-    # print("pyscf densigy matrix:\n", dm)
+    print("pyscf densigy matrix:\n", dm)
     # print("pyscf J:\n", J)
     # print("bands pyscf:", kmf.get_bands(kpts)[0][0])
     # print("pyscf K:\n", K)
@@ -312,7 +338,7 @@ if __name__=='__main__':
     # batch = 32
     # x = jax.random.uniform(key, (batch, n, dim), minval=0., maxval=L)
     # kpt = jax.random.uniform(key, (batch, dim), minval=-jnp.pi/L, maxval=jnp.pi/L)
-    # E = jax.vmap(hf, (0, 0), 0)(x, kpt)
+    # E = vmap(hf, (0, 0), 0)(x, kpt)
     # t2 = time.time()
     # print("E:", E)
     # print("time:", t2-t1)
@@ -323,7 +349,8 @@ if __name__=='__main__':
     print("pyscf time:", t3-t2)
 
     # x = jnp.concatenate([x, x]).reshape(2, n, dim)
-    # print (jax.vmap(hf, (0, None), 0)(x, kpt))
+    # print (vmap(hf, (0, None), 0)(x, kpt))
 
     import resource
     print(f"{1e-3 * resource.getrusage(resource.RUSAGE_SELF).ru_maxrss}MB")
+  
