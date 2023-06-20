@@ -21,7 +21,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
 
-def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
+def make_hf(n, L, basis, tol=1e-6, max_cycle=6):
     """
         Make PBC Hartree Fock function.
         INPUT:
@@ -116,7 +116,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             Returns:
                 dm: array of shape (n_ao, n_ao), density matrix.
         """
-        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2])
+        dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2]).real
         return dm
     
     def density(xp, dm, r):
@@ -141,12 +141,20 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
                 dm: array of shape (n_ao, n_ao), density matrix.
                 r: array of shape (dim,)
             Returns:
-                Vxc (dtype: float)
+                V_xc (dtype: float)
         """
         density_r = lambda r: density(xp, dm, r)
         lda_x = jax_xc.lda_x(polarized=False)
         lda_x_r = lambda R: lda_x(density_r, R)
-        V_xc = lda_x_r(r)+density_r(r)*jnp.dot(grad(lda_x_r)(r),1/grad(density_r)(r))
+        V_xc = lda_x_r(r)+density_r(r)*jnp.dot(grad(lda_x_r)(r),1/grad(density_r)(r))/3
+        # print("rho(0,0,0) =", density_r(jnp.array([0,0,0])))
+        # print("Elda(0,0,0) =", -3./4*(3/jnp.pi*density_r(jnp.array([0,0,0])))**(1./3))
+        # print("lda(0,0,0) =", lda_x_r(r))
+        # print("Evxc(0,0,0) =", -(3/jnp.pi*density_r(jnp.array([0,0,0])))**(1./3))
+        # print("vxc(0,0,0) =", V_xc)
+        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[0])
+        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[1])
+        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[2])
         return V_xc
 
     def dft_xc(xp, dm, phi):
@@ -155,14 +163,14 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             Args:
                 xp: array of shape (n, dim), position of protons.
                 dm: array of shape (n_ao, n_ao), density matrix.
-                phi: array of shape (nx*ny*nz,, n_ao), wave function.
+                phi: array of shape (nx*ny*nz, n_ao), wave function.
             Returns:
-                XC: array of shape (n_ao, n_ao), exchange correlation matrix.
+                xc: array of shape (n_ao, n_ao), exchange correlation matrix.
         """
         v_xc_r = lambda r: v_xc(xp, dm, r)
-        v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3))
-        XC = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-        return XC
+        v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)    
+        xc = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return xc
 
     def hartree(eris, dm):
         """
@@ -217,7 +225,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
 
         # intialize molecular orbital
         mo_coeff = jnp.ones((n_ao, n_ao))
-        dm = density_matrix(mo_coeff) + 0j
+        dm = density_matrix(mo_coeff)
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
@@ -229,10 +237,10 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             
             # Hartree & Exchange-Correlation
             J = hartree(eris, dm)
-            XC = dft_xc(xp, dm, phi)
+            xc = dft_xc(xp, dm, phi)
 
             # Fock matrix
-            F = Hcore + J + XC
+            F = Hcore + J + xc
 
             # diagonalization
             f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
@@ -250,7 +258,11 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=50):
             return abs(carry[1] - carry[0]) > tol
             
         _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
-        print("dft dm:\n", dm)
+
+        # quick test
+        v_xc(xp, dm, jnp.array([0,0,0], dtype=jnp.float64))
+        print("dm:\n", dm)
+        print("xc:\n", dft_xc(xp, dm, phi))
 
         return E # this is without vpp, unit: Ry
     
@@ -285,7 +297,8 @@ def pyscf_dft(L, xp, basis, kpt):
     kmf.kernel()
 
     dm = kmf.make_rdm1()
-    print("pyscf densigy matrix:\n", dm)
+    print("pyscf dm:\n", dm)
+    print("pyscf xc:\n", kmf.get_veff(dm=dm)-kmf.get_j())
     
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
