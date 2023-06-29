@@ -144,5 +144,5 @@ def invoke(
   args = rho_to_arguments(p, rho, r, mo, deorbitalize)
   ret = pol(p, *args) if p.nspin == 2 else unpol(p, *args)
   dens = args[0] if p.nspin == 1 else sum(args[0])
-  ret = float(dens >= p.dens_threshold) * ret
+  ret = jnp.float64(dens >= p.dens_threshold) * ret
   return ret
