@@ -21,7 +21,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
 
-def make_hf(n, L, basis, tol=1e-6, max_cycle=6):
+def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
     """
         Make PBC Hartree Fock function.
         INPUT:
@@ -135,7 +135,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=6):
     
     def v_xc(xp, dm, r):
         """
-            Return Vxc.
+            Return Vxc at r.
             Args:
                 xp: array of shape (n, dim), position of protons.
                 dm: array of shape (n_ao, n_ao), density matrix.
@@ -260,9 +260,14 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=6):
         _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
 
         # quick test
-        v_xc(xp, dm, jnp.array([0,0,0], dtype=jnp.float64))
+        # v_xc(xp, dm, jnp.array([0,0,0], dtype=jnp.float64))
         print("dm:\n", dm)
         print("xc:\n", dft_xc(xp, dm, phi))
+        dm2 = jnp.array([[ 1.71276087, -1.83626329, -1.82739209,  1.82139947],
+                        [-1.83626329,  1.97174445,  1.96272843, -1.91400756],
+                        [-1.82739209,  1.96272843,  1.95383804, -1.89833772],
+                        [ 1.82139947, -1.91400756, -1.89833772,  2.42495559]], dtype=jnp.float64)
+        print("xc pyscf dm:\n", dft_xc(xp, dm2, phi))
 
         return E # this is without vpp, unit: Ry
     
@@ -299,7 +304,11 @@ def pyscf_dft(L, xp, basis, kpt):
     dm = kmf.make_rdm1()
     print("pyscf dm:\n", dm)
     print("pyscf xc:\n", kmf.get_veff(dm=dm)-kmf.get_j())
-    
+    dm2 = np.array([[[1.85903168, -1.90284398, -1.89702772,  1.66671288],
+                    [-1.90284398,  1.96497491,  1.95708695, -1.84352333],
+                    [-1.89702772,  1.95708695,  1.9494337,  -1.82291654],
+                    [ 1.66671288, -1.84352333, -1.82291654,  2.58850149]]], dtype=np.float64)
+    print("pyscf xc dm:\n", kmf.get_veff(dm=dm2)-kmf.get_j())                
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
 
