@@ -6,7 +6,6 @@ from pyscf.pbc import gto, dft
 from hqc.pbc.ao import gen_lattice, make_ao
 import jax_xc
 
-unknown = 0.22578495
 Ry = 2
 const = (2 / jnp.pi)**0.75
 coeff_sto3g = jnp.array([[3.42525091, 0.15432897],
@@ -21,7 +20,7 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
 
-def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
+def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
     """
         Make PBC Hartree Fock function.
         INPUT:
@@ -157,6 +156,9 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
         # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[2])
         return V_xc
 
+    def lda_x(rho):
+        return -(3/jnp.pi*rho)**(1./3)
+
     def dft_xc(xp, dm, phi):
         """
             Return the DFT exchange correlation matrix.
@@ -168,7 +170,9 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
                 xc: array of shape (n_ao, n_ao), exchange correlation matrix.
         """
         v_xc_r = lambda r: v_xc(xp, dm, r)
-        v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)    
+        v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)
+        # density_r = lambda r: density(xp, dm, r)
+        # v_xc_R = vmap(lda_x)(vmap(density_r)(Rmesh.reshape(-1, 3)))
         xc = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         return xc
 
@@ -183,6 +187,15 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
         """
         J = jnp.einsum('rs,prsq->pq', dm, eris)
         return J
+
+    def geneigensolver(F, v):
+        """
+            Return the eigenstate of the generalized eigenvalue problem FC=eSC.
+        """
+        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+        _, c1 = jnp.linalg.eigh(f1)
+        c = jnp.dot(v, c1) # (n_ao, n_mo)
+        return c
 
     def hf(xp, kpt, use_remat=False):
         """
@@ -223,13 +236,13 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
             carry = jax.lax.map(lambda phis: density_int1(phi, phi, phis), phi.transpose(1,0))
         eris = carry.transpose(1,2,0,3)
 
-        # intialize molecular orbital
-        mo_coeff = jnp.ones((n_ao, n_ao))
-        dm = density_matrix(mo_coeff)
-
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
         v = jnp.dot(u, jnp.diag(w**(-0.5)))
+
+        # intialize molecular orbital
+        mo_coeff = geneigensolver(Hcore, v)
+        dm = density_matrix(mo_coeff)
             
         # scf loop
         def body_fun(carry):
@@ -242,12 +255,8 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
             # Fock matrix
             F = Hcore + J + xc
 
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            _, c1 = jnp.linalg.eigh(f1)
-
             # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+            mo_coeff = geneigensolver(F, v) # (n_ao, n_mo)
             dm = density_matrix(mo_coeff)
 
             # energy
@@ -262,12 +271,18 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=30):
         # quick test
         # v_xc(xp, dm, jnp.array([0,0,0], dtype=jnp.float64))
         print("dm:\n", dm)
-        print("xc:\n", dft_xc(xp, dm, phi))
+        # print("xc:\n", dft_xc(xp, dm, phi))
         dm2 = jnp.array([[ 1.71276087, -1.83626329, -1.82739209,  1.82139947],
                         [-1.83626329,  1.97174445,  1.96272843, -1.91400756],
                         [-1.82739209,  1.96272843,  1.95383804, -1.89833772],
-                        [ 1.82139947, -1.91400756, -1.89833772,  2.42495559]], dtype=jnp.float64)
-        print("xc pyscf dm:\n", dft_xc(xp, dm2, phi))
+                        [ 1.82139947, -1.91400756, -1.89833772,  2.42495559]], dtype=jnp.float64) # pyscf dm
+        # print("xc pyscf dm:\n", dft_xc(xp, dm2, phi))
+
+        # test dm is normalized
+        density_r = lambda r: density(xp, dm, r)
+        print("dm normalized:", jnp.sum(jax.vmap(density_r)(Rmesh.reshape(-1,3)))*jnp.linalg.det(cell)*(L/n_grid)**3/n)
+        density_r2 = lambda r: density(xp, dm2, r)
+        print("dm2 normalized:", jnp.sum(jax.vmap(density_r2)(Rmesh.reshape(-1,3)))*jnp.linalg.det(cell)*(L/n_grid)**3/n)
 
         return E # this is without vpp, unit: Ry
     
@@ -308,9 +323,10 @@ def pyscf_dft(L, xp, basis, kpt):
                     [-1.90284398,  1.96497491,  1.95708695, -1.84352333],
                     [-1.89702772,  1.95708695,  1.9494337,  -1.82291654],
                     [ 1.66671288, -1.84352333, -1.82291654,  2.58850149]]], dtype=np.float64)
-    print("pyscf xc dm:\n", kmf.get_veff(dm=dm2)-kmf.get_j())                
+    print("pyscf xc dm:\n", kmf.get_veff(dm=dm2)-kmf.get_j())
+    print(dir(kmf))
+    print(kmf.energy)
     return Ry*(kmf.e_tot - kmf.energy_nuc())
-
 
 if __name__=='__main__':
     import time
@@ -319,7 +335,7 @@ if __name__=='__main__':
 
     rs = 1.4
     n, dim = 4, 3
-    basis = 'gth-szv'
+    basis = 'sto-3g'
     L = (n*4./3*jnp.pi)**(1./3)*rs
     print("L:", L)
     key = jax.random.PRNGKey(42)
