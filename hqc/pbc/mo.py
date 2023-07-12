@@ -92,7 +92,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         vep = jnp.einsum('xm,x,xn->mn', phi.conjugate(), vlocR, phi)*Omega/n_grid3 # (n_ao, n_ao)
         return vep
     
-    def density_int(phi, phir, phis):
+    def density_int(phi):
         """
             2 orbital density integrals.
             To save RAM, we use integral index: 'p(rs)q', where 'rs' need to be mapped
@@ -101,10 +101,15 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             Returns:
                 eris: array of shape (n_ao, n_ao)
         """
-        rhoR = (phir*phis.conjugate()).reshape(n_grid,n_grid,n_grid) # (nx,ny,nz)
-        rhoG = jnp.fft.fftn(rhoR)*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz)
-        VR = n_grid**3*jnp.fft.ifftn(VG*rhoG).reshape(-1) # (nx*ny*nz)
-        eris = jnp.einsum('xp,x,xq->pq', phi.conjugate(), VR, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        rhoR = jnp.einsum('xm,xn->xmn', phi, phi.conjugate()).reshape(n_grid,n_grid,n_grid,n_ao,n_ao) # (nx,ny,nz,n_ao,n_ao)
+        rhoG = jnp.fft.fftn(rhoR, axes=(0,1,2))*jnp.linalg.det(cell)*(L/n_grid)**3 # (nx,ny,nz,n_ao,n_ao)
+        eris = jnp.einsum('x,xrs,xqp->prsq', VG[1:,0,0], rhoG[1:,0,0], jnp.flip(rhoG[1:,0,0],0)) \
+             + jnp.einsum('y,yrs,yqp->prsq', VG[0,1:,0], rhoG[0,1:,0], jnp.flip(rhoG[0,1:,0],0)) \
+             + jnp.einsum('z,zrs,zqp->prsq', VG[0,0,1:], rhoG[0,0,1:], jnp.flip(rhoG[0,0,1:],0)) \
+             + jnp.einsum('yz,yzrs,yzqp->prsq', VG[0,1:,1:], rhoG[0,1:,1:], jnp.flip(rhoG[0,1:,1:],(0,1))) \
+             + jnp.einsum('xz,xzrs,xzqp->prsq', VG[1:,0,1:], rhoG[1:,0,1:], jnp.flip(rhoG[1:,0,1:],(0,1))) \
+             + jnp.einsum('xy,xyrs,xyqp->prsq', VG[1:,1:,0], rhoG[1:,1:,0], jnp.flip(rhoG[1:,1:,0],(0,1))) \
+             + jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG[1:,1:,1:], rhoG[1:,1:,1:], jnp.flip(rhoG[1:,1:,1:],(0,1,2)))
         return eris
 
     def density_matrix(mo_coeff):
@@ -231,12 +236,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         Hcore = T + V
 
         # Hartree & Exchange integral initialization
-        density_int1 = vmap(density_int, (None, 1, None), 2)
-        if use_remat:
-            carry = jax.lax.map(lambda phis: jax.remat(density_int1)(phi, phi, phis), phi.transpose(1,0))
-        else:
-            carry = jax.lax.map(lambda phis: density_int1(phi, phi, phis), phi.transpose(1,0))
-        eris = carry.transpose(1,2,0,3)
+        eris = density_int(phi)
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
