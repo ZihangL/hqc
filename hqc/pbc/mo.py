@@ -20,9 +20,9 @@ coeff_gthdzv = jnp.array([[8.3744350009, -0.0283380461, 0.0000000000],
                         [0.4852528328, -0.3995676063, 0.0000000000],
                         [0.1658236932, -0.5531027541, 1.0000000000]])
 
-def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
+def make_dft(n, L, basis, tol=1e-6, max_cycle=10):
     """
-        Make PBC Hartree Fock function.
+        Make PBC Restricted Kohn-Sham for periodic systems with k-point sampling.
         INPUT:
             n: int, number of hydrogen atoms in unit cell.
             L: float, side length of unit cell, unit: Bohr.
@@ -123,7 +123,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         dm = 2*jnp.einsum('im,jm->ij', mo_coeff[:,:n//2], mo_coeff.conjugate()[:,:n//2]).real
         return dm
     
-    def density(xp, dm, r):
+    def density(xp, dm, r, kpt):
         """
             density at r.
             Args:
@@ -137,7 +137,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         dens = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
         return jnp.float64(dens.real)
     
-    def e_xc(xp, dm):
+    def e_xc(xp, dm, kpt):
         """
             Return Exc
             Args:
@@ -146,14 +146,14 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             Returns:
                 e_xc (dtype: float)
         """        
-        density_r = lambda r: density(xp, dm, r)
+        density_r = lambda r: density(xp, dm, r, kpt)
         lda_x = jax_xc.lda_x(polarized=False)
         e_xc_r = lambda R: lda_x(density_r, R) * density_r(R)
         e_xc_R = vmap(e_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)
         e_xc= jnp.sum(e_xc_R)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         return e_xc
 
-    def v_xc(xp, dm, r):   
+    def v_xc(xp, dm, r, kpt):   
         """
             Return Vxc at r.
             Args:
@@ -163,13 +163,13 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             Returns:
                 V_xc (dtype: float)
         """
-        density_r = lambda r: density(xp, dm, r)
+        density_r = lambda r: density(xp, dm, r, kpt)
         lda_x = jax_xc.lda_x(polarized=False)
         lda_x_r = lambda R: lda_x(density_r, R)
         V_xc = lda_x_r(r)+density_r(r)*jnp.dot(grad(lda_x_r)(r),1/grad(density_r)(r))/3
         return V_xc
 
-    def dft_xc(xp, dm, phi):
+    def dft_xc(xp, dm, phi, kpt):
         """
             Return the DFT exchange correlation matrix.
             Args:
@@ -179,15 +179,8 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             Returns:
                 xc: array of shape (n_ao, n_ao), exchange correlation matrix.
         """
-        v_xc_r = lambda r: v_xc(xp, dm, r)
+        v_xc_r = lambda r: v_xc(xp, dm, r, kpt)
         v_xc_R = vmap(v_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)
-        xc = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
-        return xc
-
-    def dft_xc_check(xp, dm, phi):
-        density_r = lambda r: density(xp, dm, r)
-        lda_x = lambda rho: -(3/jnp.pi*rho)**(1./3)
-        v_xc_R = vmap(lda_x)(vmap(density_r)(Rmesh.reshape(-1, 3)))
         xc = jnp.einsum('xp,x,xq->pq', phi.conjugate(), v_xc_R, phi)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
         return xc
 
@@ -212,7 +205,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         c = jnp.dot(v, c1) # (n_ao, n_mo)
         return c
 
-    def hf(xp, kpt, use_remat=False):
+    def dft(xp, kpt, use_remat=False):
         """
             PBC Hartree Fock without vee.
             INPUT:
@@ -260,7 +253,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             
             # Hartree & Exchange-Correlation
             J = hartree(eris, dm)
-            xc = dft_xc(xp, dm, phi)
+            xc = dft_xc(xp, dm, phi, kpt)
 
             # Fock matrix
             H = Hcore + J + xc
@@ -270,7 +263,7 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             dm = density_matrix(mo_coeff)
 
             # energy
-            E_new = (jnp.einsum('pq,qp', Hcore+0.5*J, dm) + e_xc(xp, dm)) * Ry
+            E_new = (jnp.einsum('pq,qp', Hcore+0.5*J, dm) + e_xc(xp, dm, kpt)) * Ry
             return (E.real, E_new.real, dm)
         
         def cond_fun(carry):
@@ -278,24 +271,11 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             
         _, E, dm = jax.lax.while_loop(cond_fun, body_fun, (0., 1., dm))
 
-        # quick test
-        print("dm:\n", dm)
-        xc = dft_xc(xp, dm, phi)
-        J = hartree(eris, dm)
-        print("xc for dm:\n", xc)
-        print("lda xc check for dm:\n", dft_xc_check(xp, dm, phi))
-        print("J for dm\n", J)
-        print("veff for dm:\n", xc + J)
-
-        # test dm is normalized
-        density_r = lambda r: density(xp, dm, r)
-        print("check if dm is normalized:", jnp.sum(jax.vmap(density_r)(Rmesh.reshape(-1,3)))*jnp.linalg.det(cell)*(L/n_grid)**3/n)
-
-        return E, dm # this is without vpp, unit: Ry
+        return E # this is without vpp, unit: Ry
     
-    return hf
+    return dft
 
-def pyscf_dft(L, xp, basis, kpt, dm_check):
+def pyscf_dft(L, xp, basis, kpt):
     """
         dft pyscf benchmark.
 
@@ -323,15 +303,6 @@ def pyscf_dft(L, xp, basis, kpt, dm_check):
     kmf.verbose = 0
     kmf.kernel()
 
-    dm_check = np.array([dm_check])
-    print("pyscf veff for the same dm:\n", kmf.get_veff(dm=dm_check))
-
-    dm = kmf.make_rdm1()
-    print("pyscf dm:\n", dm)
-    print("pyscf J:\n", kmf.get_j())
-    print("pyscf xc:\n", kmf.get_veff()-kmf.get_j())
-
-    print(dir(kmf))
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
 if __name__=='__main__':
@@ -359,11 +330,11 @@ if __name__=='__main__':
     kpt = jnp.array([0,0,0])
 
     t0 = time.time()
-    hf = make_hf(n, L, basis)
+    krks = make_dft(n, L, basis)
     t1 = time.time()
     print("make time:", t1-t0)
     
-    E, dm = hf(x, kpt)
+    E = krks(x, kpt)
     t2 = time.time()
     print("E:", E)
     print("time:", t2-t1)
@@ -377,7 +348,7 @@ if __name__=='__main__':
     # print("E:", E)
     # print("time:", t2-t1)
 
-    E_pyscf = pyscf_dft(L, x, basis, kpt, dm)
+    E_pyscf = pyscf_dft(L, x, basis, kpt)
     t3 = time.time()
     print("pyscf E:", E_pyscf)
     print("pyscf time:", t3-t2)
