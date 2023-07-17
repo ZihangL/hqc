@@ -137,7 +137,23 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         dens = jnp.einsum('rs,r,s', dm, phi, phi.conjugate())
         return jnp.float64(dens.real)
     
-    def v_xc(xp, dm, r):
+    def e_xc(xp, dm):
+        """
+            Return Exc
+            Args:
+                xp: array of shape (n, dim), position of protons.
+                dm: array of shape (n_ao, n_ao), density matrix.
+            Returns:
+                e_xc (dtype: float)
+        """        
+        density_r = lambda r: density(xp, dm, r)
+        lda_x = jax_xc.lda_x(polarized=False)
+        e_xc_r = lambda R: lda_x(density_r, R) * density_r(R)
+        e_xc_R = vmap(e_xc_r)(Rmesh.reshape(-1, 3)) # (nx*ny*nz,)
+        e_xc= jnp.sum(e_xc_R)*jnp.linalg.det(cell)*(L/n_grid)**3 # (n_ao, n_ao)
+        return e_xc
+
+    def v_xc(xp, dm, r):   
         """
             Return Vxc at r.
             Args:
@@ -151,14 +167,6 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
         lda_x = jax_xc.lda_x(polarized=False)
         lda_x_r = lambda R: lda_x(density_r, R)
         V_xc = lda_x_r(r)+density_r(r)*jnp.dot(grad(lda_x_r)(r),1/grad(density_r)(r))/3
-        # print("rho(0,0,0) =", density_r(jnp.array([0,0,0])))
-        # print("Elda(0,0,0) =", -3./4*(3/jnp.pi*density_r(jnp.array([0,0,0])))**(1./3))
-        # print("lda(0,0,0) =", lda_x_r(r))
-        # print("Evxc(0,0,0) =", -(3/jnp.pi*density_r(jnp.array([0,0,0])))**(1./3))
-        # print("vxc(0,0,0) =", V_xc)
-        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[0])
-        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[1])
-        # print((grad(lda_x_r)(r)*1/grad(density_r)(r))[2])
         return V_xc
 
     def dft_xc(xp, dm, phi):
@@ -255,14 +263,14 @@ def make_hf(n, L, basis, tol=1e-6, max_cycle=10):
             xc = dft_xc(xp, dm, phi)
 
             # Fock matrix
-            F = Hcore + J + xc
+            H = Hcore + J + xc
 
             # molecular orbitals and density matrix
-            mo_coeff = geneigensolver(F, v) # (n_ao, n_mo)
+            mo_coeff = geneigensolver(H, v) # (n_ao, n_mo)
             dm = density_matrix(mo_coeff)
 
             # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm) * Ry
+            E_new = (jnp.einsum('pq,qp', Hcore+0.5*J, dm) + e_xc(xp, dm)) * Ry
             return (E.real, E_new.real, dm)
         
         def cond_fun(carry):
