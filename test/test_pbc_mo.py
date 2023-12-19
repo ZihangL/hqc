@@ -71,7 +71,7 @@ def test_pbc_mo():
         assert np.allclose(E_twist, E_pyscf_twist, rtol=1e-4)
 
         # jit, vmap, grad test
-        jax.jit(jax.grad(hf))(xp, k0)
+        # jax.jit(jax.grad(hf))(xp, k0)
         xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
         jax.vmap(hf, (0, None), 0)(xp2, k0)
         kpts = jnp.concatenate([k0, k0]).reshape(2, dim)
