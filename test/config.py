@@ -1,6 +1,8 @@
 import sys, os
 testdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(testdir+"/../hqc/")
+sys.path.append(testdir+"/../hqc/gto/")
+sys.path.append(testdir+"/../hqc/pbc/")
 
 import jax
 from jax.config import config   
