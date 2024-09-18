@@ -51,7 +51,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
     # print("pyscf Hcore:\n", kmf.get_hcore())
     print("pyscf e_tot:", (kmf.e_tot - kmf.energy_nuc())*Ry)
 
-    return mo_coeff[:,::-1]+0j, bands[::-1] * Ry 
+    return mo_coeff, bands * Ry 
 
 def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, smearing_method='fermi'):
     """
@@ -97,4 +97,4 @@ def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, sm
     # print("pyscf e_elec (Ha):", kmf.energy_elec())
     # print("pyscf e_nuc (Ha):", kmf.energy_nuc())
     
-    return mo_coeff[:,::-1]+0j, bands[::-1] * Ry 
+    return mo_coeff, bands * Ry

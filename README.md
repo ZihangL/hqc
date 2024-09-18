@@ -58,6 +58,10 @@ print("================= pyscf =================")
 # print("mo_coeff:\n", mo_coeff)
 print("bands:\n", bands)                                          
 ```
+or use "python main.py" to run a specific kind of test.
+```bash
+python main.py
+```
 
 ## Requirements
 

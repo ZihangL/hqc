@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from hqc.pbc.ao import make_pbc_gto
+from hqc.pbc.gto import make_pbc_gto
 
 def make_lcao_orbitals(n, L, rs, basis='sto-3g'):
     if 'aug' in basis.rsplit('-'):
@@ -30,3 +30,11 @@ def make_lcao_orbitals(n, L, rs, basis='sto-3g'):
         return slater_up, slater_dn
 
     return lcao_orbitals
+
+def make_groundstate_state_idx(n):
+    assert n % 2 == 0
+    state_idx = jnp.concatenate([jnp.arange(n//2), jnp.arange(n//2)])
+    return state_idx
+
+if __name__ == "__main__":
+    print(make_groundstate_state_idx(14))

@@ -99,7 +99,7 @@ def main(cfg : DictConfig) -> None:
         time4 = time.time()
 
         print("\n========== solver ==========")
-        print("solver bands:\n", bands[::-1])
+        print("solver bands:\n", bands)
         print("compile time:", time2-time1-time4+time3)
         print("run time:", time4-time3)
         print("finished!")
@@ -158,7 +158,7 @@ def main(cfg : DictConfig) -> None:
         time4 = time.time()
 
         print("\n========== solver ==========")
-        # print("solver bands[0]:\n", bands[0, [::-1]])
+        # print("solver bands[0]:\n", bands[0])
         print("compile time:", time2-time1-time4+time3)
         print("run time:", time4-time3)
         print("finished!")

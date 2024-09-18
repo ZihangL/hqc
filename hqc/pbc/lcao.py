@@ -628,7 +628,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("end scf loop {x}", x=loop)
         # =====================================================
 
-        return mo_coeff[:, ::-1]+0j, w1[::-1] * Ry
+        return mo_coeff, w1 * Ry
     
     def hf_diis(xp):
         """
@@ -832,7 +832,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
 
-        return mo_coeff[:, ::-1]+0j, w1[::-1] * Ry
+        return mo_coeff, w1 * Ry
 
     def dft_fp(xp):
         """
@@ -927,7 +927,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("end scf loop {x}", x=loop)
         # =====================================================
 
-        return mo_coeff[:, ::-1]+0j, w1[::-1] * Ry
+        return mo_coeff, w1 * Ry
 
     def dft_diis(xp):
         """
@@ -1132,7 +1132,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
 
-        return mo_coeff[:, ::-1]+0j, w1[::-1] * Ry
+        return mo_coeff, w1 * Ry
 
     if dft:
         if diis:
