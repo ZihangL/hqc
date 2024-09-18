@@ -4,6 +4,8 @@ Quantum chemistry calculations in Hydrogen system.
 
 Returns Hartree fock energy of PBC or isolated Hydrogen system without Vpp, unit: Rydberg.
 
+Branch 'falcon' is for the fastest and cheapest Hartree Fock and DFT algorithm of PBC hydrogen system.
+
 ## Install
 
 clone and cd to this directory.
