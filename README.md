@@ -9,12 +9,21 @@ Returns Hartree fock energy of PBC or isolated Hydrogen system without Vpp, unit
 clone and cd to this directory.
 
 use "pip install -e ." to install hydrogenqc.
+```bash
+pip install -e .
+```
 
 use "pip uninstall hqc" to uninstall.
+```bash
+pip unintall hqc
+```
 
 ## Import
 
 use "import hqc" directly to import this package anywhere.
+```python
+import hqc
+```
 
 ## Example
 
