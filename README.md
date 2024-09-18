@@ -45,3 +45,7 @@ hf = make_hf(n, L, basis)
 E = hf(xp, kpt)
 print("E:", E)
 ```
+
+## Requirements
+
+        jax

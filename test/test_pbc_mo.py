@@ -1,11 +1,10 @@
 from config import *
-from pyscf.pbc import gto, scf
-from hqc.pbc.mo import make_hf
+from pyscf.pbc import gto, dft
+from hqc.pbc.mo import make_dft
 
-def pyscf_hf(L, xp, basis, kpt):
-
+def pyscf_krks(L, xp, basis, kpt):
     """
-        hartree fock without Vee pyscf benchmark.
+        krks pyscf benchmark.
 
         OUTPUT:
             energy without Vpp, unit: Ry
@@ -13,7 +12,6 @@ def pyscf_hf(L, xp, basis, kpt):
     Ry = 2
     n = xp.shape[0]
     cell = np.eye(3)
-    n_alpha = n_beta = int(n/2)
     gtocell = gto.Cell()
     gtocell.unit = 'B'
     gtocell.atom = []
@@ -25,22 +23,13 @@ def pyscf_hf(L, xp, basis, kpt):
     gtocell.build()
 
     kpts = [kpt.tolist()]
-    # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
-    kmf = scf.khf.KRHF(gtocell, kpts=kpts)
+    kmf = dft.krks.KRKS(gtocell, kpts=kpts)
+    kmf.xc = 'lda,'
+    kmf = kmf.density_fit()
+    kmf = kmf.newton()
     kmf.verbose = 0
     kmf.kernel()
-
-    # ovlp = kmf.get_ovlp()
-    # T = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
-    # V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
-    # Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
-    # c2 = kmf.mo_coeff[0]
-    # dm = kmf.make_rdm1()
-    # print("pyscf overlap:\n", ovlp)
-    # print("pyscf T:\n", T)
-    # print("pyscf V:\n", V)
-    # print("pyscf densigy matrix:\n", dm)
-
+    
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
 def test_pbc_mo():
@@ -58,20 +47,20 @@ def test_pbc_mo():
         print("basis:", basis)
 
         # PBC energy test
-        hf = make_hf(n, L, basis)
-        E = hf(xp, k0)
-        E_pyscf = pyscf_hf(L, xp, basis, k0)
+        krks = make_dft(n, L, basis)
+        E = krks(xp, k0)
+        E_pyscf = pyscf_krks(L, xp, basis, k0)
         print("\nE:\n", E, "\npyscf E:\n", E_pyscf)
         assert np.allclose(E, E_pyscf, rtol=1e-4)
 
         # TBC energy test
-        E_twist = hf(xp, twist)
-        E_pyscf_twist = pyscf_hf(L, xp, basis, twist)
+        E_twist = krks(xp, twist)
+        E_pyscf_twist = pyscf_krks(L, xp, basis, twist)
         print("E:\n", E_twist, "\npyscf E:\n", E_pyscf_twist)
         assert np.allclose(E_twist, E_pyscf_twist, rtol=1e-4)
 
-        # jit, vmap, grad test
-        # jax.jit(jax.grad(hf))(xp, k0)
+        # jit, vHap, grad test
+        jax.jit(jax.grad(hf))(xp, k0)
         xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
         jax.vmap(hf, (0, None), 0)(xp2, k0)
         kpts = jnp.concatenate([k0, k0]).reshape(2, dim)
