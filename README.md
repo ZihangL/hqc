@@ -58,9 +58,9 @@ print("================= pyscf =================")
 # print("mo_coeff:\n", mo_coeff)
 print("bands:\n", bands)                                          
 ```
-or use "python main.py" to run a specific kind of test.
+or use "python example.py" to run a specific kind of test for hydrogen.
 ```bash
-python main.py
+python example.py
 ```
 
 ## Requirements

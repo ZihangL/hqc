@@ -3,23 +3,33 @@ import jax.numpy as jnp
 
 from hqc.pbc.gto import make_pbc_gto
 
-def make_lcao_orbitals(n, L, rs, basis='sto-3g'):
-    if 'aug' in basis.rsplit('-'):
-        rcut = 24
-    else:
-        rcut = 18
+def make_slater(n, L, rs, basis='sto-3g', rcut=24, groundstate=True):
+    """
+        Make a slater determinant function.
+        Args:
+            n: int, number of electrons.
+            L: float, box size.
+            rs: float, Wigner-Seitz radius.
+            basis: str, basis set, default is 'sto-3g'.
+            rcut: float, cutoff radius.
+            groundstate: bool, whether to return the groundstate slater.
+    """
+    assert n % 2 == 0
     gto = make_pbc_gto(basis, L*rs, rcut=rcut)
-
-    def lcao_orbitals(xp, xe, mo_coeff, state_idx):
+    
+    def slater(xp, xe, mo_coeff, state_idx):
         """
             logpsi, which is generally complex.
             Args:
-                xp: (n, 3)
-                xe: (n, 3)
+                xp: (n, 3) in units of rs.
+                xe: (n, 3) in units of rs.
                 mo_coeff: (n_ao, n_mo)
                 state_idx: (nx,) the first half are spin up, the latter half are spin down.
+                    For groundstate of n=8 system, state_idx = [0, 1, 2, 3, 0, 1, 2, 3]
             Returns:
-                log_slater_determinant
+                slater up: (n_up, n_up)
+                slater dn: (n_dn, n_dn)
+                slater matrix of spin up and spin down electrons.
         """  
         assert xp.shape[0] == n
         ao_val = jax.lax.map(lambda xe: gto(xp*rs, xe*rs), xe) # (n, n_ao)
@@ -29,12 +39,8 @@ def make_lcao_orbitals(n, L, rs, basis='sto-3g'):
         slater_dn = jnp.einsum('ij,jk->ik', ao_val_dn, mo_coeff[:, state_idx[n//2:]]) # (n_dn, n_dn)
         return slater_up, slater_dn
 
-    return lcao_orbitals
-
-def make_groundstate_state_idx(n):
-    assert n % 2 == 0
-    state_idx = jnp.concatenate([jnp.arange(n//2), jnp.arange(n//2)])
-    return state_idx
-
-if __name__ == "__main__":
-    print(make_groundstate_state_idx(14))
+    if groundstate:
+        groundstate_idx = jnp.concatenate([jnp.arange(n//2), jnp.arange(n//2)])
+        return lambda xp, xe, mo_coeff: slater(xp, xe, mo_coeff, groundstate_idx)
+    else:
+        return slater

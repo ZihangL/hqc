@@ -4,3 +4,4 @@ doc/*.dvi
 doc/*.gz
 *.egg-info
 outputs/
+data/
