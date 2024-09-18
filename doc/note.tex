@@ -119,16 +119,17 @@
     In practice, we can get PBC orbitals both from eq.\eqref{ao} and eq.\eqref{ao_ft}. 
     The summations in these two equations are done in a cutoff range.
     To compare the computational complexity of eq.\eqref{ao} and eq.\eqref{ao_ft}, 
-    we have to specify the fourier coeffcients by using eq.\eqref{ao_ft_coeff}.
+    we have to specify the fourier coefficients by using eq.\eqref{ao_ft_coeff}.
     \begin{align*}
         \phi_{\textbf{k},i}(\textbf{G}) &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \phi_{\textbf{k},i}(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
         &= \frac{1}{\Omega}\int_\Omega d\textbf{r}\ \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
         &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_\Omega d\textbf{r}\ \varphi_i(\textbf{r}-\textbf{T})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\\
-        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
+        &= \frac{1}{\Omega}\sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}
+            \int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot(\textbf{r}'+\textbf{T})}\\
         &= \frac{1}{\Omega}\sum_{\textbf{T}}\int_{\Omega-\textbf{T}} d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}\\
         &= \frac{1}{\Omega}\int d\textbf{r}'\ \varphi_i(\textbf{r}')e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}'}
     \end{align*}
-    For GTOs, the fourier coeffcients can be performed analytically
+    For GTOs, the fourier coefficients can be performed analytically
     \begin{equation}
         \phi_{\textbf{k},i}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_i(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{ao_ft_coeff1}
     \end{equation}
@@ -137,13 +138,14 @@
     \begin{equation}
         \phi_{\textbf{k}}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}e^{-\alpha (\textbf{r}-\textbf{T})^2}\label{7}
     \end{equation}
-    On the other hand, the fourier coeffcients from eq.\eqref{ao_ft_coeff1} is
+    On the other hand, the fourier coefficients from eq.\eqref{ao_ft_coeff1} is
     \begin{equation*}
         \phi_{\textbf{k}}(\textbf{G}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]
     \end{equation*}
     Using eq.\eqref{ao_ft}, we can get PBC orbitals
     \begin{equation}
-        \phi_{\textbf{k}}(\textbf{r}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\sum_{\textbf{G}}\exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{8}
+        \phi_{\textbf{k}}(\textbf{r}) = \frac{1}{\Omega}\left(\frac{\pi}{\alpha}\right)^{\frac{3}{2}}\sum_{\textbf{G}}
+        \exp\left[-\frac{(\textbf{k}+\textbf{G})^2}{4\alpha}\right]e^{i(\textbf{k}+\textbf{G})\cdot\textbf{r}}\label{8}
     \end{equation}
     Compare these two equations eq.\eqref{7} and eq.\eqref{8}, \textbf{we have this conclusion}:
     For large $\alpha$, whose atomic orbital is sharp, directly summation eq.\eqref{ao} has a faster convergence speed,
@@ -153,8 +155,9 @@
 \section{PBC Hartree Fock}
     In this part, we will introduce Hartree Fock method on these PBC orbitals.
     Here we use index $\mu,\nu,\sigma,\rho$ to specify atoms,
-    $p,q,r,s$ to specify orbitals of each atom,
-    $i,j,k,l$ to specify coeffcients of each orbital.
+    $p,q,r,s$ to specify atomic orbitals of each atom,
+    $i,j,k,l$ to specify coefficients of each atomic orbital,
+    $m,n$ to specify molecular orbital.
     Then the $p$ th PBC contracted GTO of $\mu$ th atom can be described as
     \begin{equation}
         \phi_{\textbf{k},p}(\textbf{r}-\textbf{R}_{\mu}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\varphi_p(\textbf{r}-\textbf{R}_{\mu}-\textbf{T})
@@ -168,6 +171,10 @@
         \phi_{\textbf{k},p}(\textbf{G}) = \frac{1}{\Omega}\int d\textbf{r}\ \varphi_p(\textbf{r})e^{-i(\textbf{k}+\textbf{G})\cdot\textbf{r}}
     \end{equation}
     In this part, we will show overlap, kinetic energy and local potential integrals both in real space and reciprocal space.
+    To simplify the index, we will use the following abbreviations. The atoms indexs are incorporated into the orbitals indexs.
+    \begin{equation}
+        \phi_{\textbf{k},p}(\textbf{r}-\textbf{R}_{\mu}) \rightarrow \phi_{\textbf{k}p}(\textbf{r}) \notag
+    \end{equation}
 
     % Here are some commonly used shorthand symbols.
     % \begin{gather*}
@@ -179,11 +186,11 @@
     \subsection{Integtals}
         Here are some commonly used tricks in this part. 
         Assume $\varphi(x)$ is a 1D atomic orbital, the 1D PBC atomic orbital is
-        $$ \phi_{k,p}(x) = \sum_{n=-\infty}^{+\infty}e^{inkT}\varphi_p(x-nT) $$
+        $$ \phi_{kp}(x) = \sum_{n=-\infty}^{+\infty}e^{inkT}\varphi_p(x-nT) $$
         or
-        $$ \phi_{k,p}(x) = \sum_{n=-\infty}^{+\infty}\phi_{k,p}(nG)e^{i(k+nG)x} $$
+        $$ \phi_{kp}(x) = \sum_{n=-\infty}^{+\infty}\phi_{k,p}(nG)e^{i(k+nG)x} $$
         General 1D integral of periodic operator $A(x)$ is given by
-        $$ A_{pq}(k) = \int_0^Tdx\ \phi_{k,p}^*(x)A(x)\phi_{k,q}(x) $$
+        $$ A_{pq}(k) = \int_0^Tdx\ \phi_{kp}^*(x)A(x)\phi_{kq}(x) $$
         In real space, the integral in a unit cell turns into infinite 1D integrals, 
         which always have analytical expressions for GTOs
         \begin{align*}
@@ -194,52 +201,71 @@
         \end{align*}
         General 1D integral in reciprocal space is given by
         \begin{align*}
-            A_{pq}(k) &= \int_0^Tdx\ \left[\sum_m\phi_{k,p}^*(mG)e^{-i(k+mG)x}\right]A(x)\left[\sum_n\phi_{k,q}(nG)e^{i(k+nG)x}\right] \\
-            &= \sum_{m,n}\phi_{k,p}^*(mG)\phi_{k,q}(nG)\int_0^Tdx\ A(x)e^{i(n-m)Gx}
+            A_{pq}(k) &= \int_0^Tdx\ \left[\sum_m\phi_{kp}^*(mG)e^{-i(k+mG)x}\right]A(x)\left[\sum_n\phi_{kq}(nG)e^{i(k+nG)x}\right] \\
+            &= \sum_{m,n}\phi_{kp}^*(mG)\phi_{kq}(nG)\int_0^Tdx\ A(x)e^{i(n-m)Gx}
         \end{align*}
         The integrals in a unit cell sometimes have results like $\delta_{m,n}$.
         Of course there is a third way to get the integral result:
         we can always do numerical integration on a mesh in the unit cell,
         and sometimes it is worthy on account of FFT.
         
-        \subsubsection{Integtals in real space}
-            The \textbf{overlap} matrix element is given by
+        \subsubsection{Overlap}
+            The \textbf{overlap} matrix element\cite{McClain2017} is given by
             \begin{equation}
-                S_{\mu p,\nu q}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                S_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})\phi_{\textbf{k}q}(\textbf{r})
             \end{equation}
             For PBC s-orbital GTOs,
-            $$ \phi_{\textbf{k},p}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\sum_ic_{pi}\left(\frac{2\alpha_i}{\pi}\right)^{\frac{3}{4}}e^{-\alpha_i(\textbf{r}-\textbf{T})^2} $$
-            The result of real-space integration is   
+            $$ \phi_{\textbf{k}p}(\textbf{r}) = \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}\sum_ic_{pi}\left(\frac{2\alpha_i}{\pi}\right)^{\frac{3}{4}}
+                e^{-\alpha_i(\textbf{r}-\textbf{T})^2} $$
+            The result of real-space integration is
+            \begin{equation}
+                S_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
+            \end{equation}
+            where
             \begin{equation}
                 S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k}) = c_{pi}c_{qj}(\frac{2\sqrt{\alpha_i\alpha_j}}{\alpha_i+\alpha_j})^{\frac{3}{2}}
                 e^{-i\textbf{k}\cdot\textbf{T}}e^{-\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu}+\textbf{T})^2}
             \end{equation}
+            $$\alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j}$$
+            The \textbf{overlap} integral of reciprocal-space integration is
             \begin{equation}
-                S_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
+                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k}p}(\textbf{G})\phi_{\textbf{k}q}(\textbf{G})
+                e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
             \end{equation}
-            where $\alpha_{ij} = \frac{\alpha_i\alpha_j}{\alpha_i+\alpha_j}$.
 
+        \subsubsection{Kinetic}
             The \textbf{kinetic} matrix element is given by
             \begin{equation}
-                T_{\mu p,\nu q}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})\nabla_{\textbf{r}}^2\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                T_{pq}(\textbf{k}) = -\frac{1}{2}\int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})\nabla_{\textbf{r}}^2
+                \phi_{\textbf{k}q}(\textbf{r})
             \end{equation}
             The result of real-space integration is  
             \begin{equation}
                 T_{\mu p,\nu q}(\textbf{k}) = \sum_{ij\textbf{T}}S_{\mu pi,\nu qj,\textbf{T}}(\textbf{k})
                 \alpha_{ij}\left[3-2\alpha_{ij}(\textbf{R}_{\mu}-\textbf{R}_{\nu}+\textbf{T})^2\right]
             \end{equation}
-            The \textbf{local potential} matrix element is given by
+            The \textbf{kinetic} integral of reciprocal-space integration is
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k},p}^*(\textbf{r}-\textbf{R}_{\mu})v^L(\textbf{r})\phi_{\textbf{k},q}(\textbf{r}-\textbf{R}_{\nu})
+                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k}p}(\textbf{G})\phi_{\textbf{k}q}(\textbf{G})
+                e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
+            \end{equation}
+
+        \subsubsection{Potential}
+            The \textbf{local potential} matrix element\cite{McClain2017} is given by
+            \begin{equation}
+                V_{pq}^L(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})v^L(\textbf{r})\phi_{\textbf{k}q}(\textbf{r})
             \end{equation}
             The local potential is
             $$ v^L(\textbf{r}) = \sum_{\sigma}V(\textbf{r}-\textbf{R}_{\sigma}) = -\sum_{\sigma\textbf{T}}\frac{1}{|\textbf{r}-\textbf{R}_{\sigma}-\textbf{T}|} $$
-            The two-gaussian integral has analytical result, 
+            The two-gaussian integral has analytical result
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = -2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
+                V_{\mu p,\nu q}^L(\textbf{k}) = -2\sum_{\sigma}\sum_{ij\textbf{T}\textbf{T}'}S_{\mu pi,\nu qj,\textbf{T}}\sqrt{\frac{\alpha_i+\alpha_j}{\pi}}
+                F_0\left[(\alpha_i+\alpha_j)(\textbf{R}_{\sigma,\textbf{T}'}-\textbf{R}_{\mu i,\nu j,\textbf{T}})^2\right]\label{localp_divergent}
             \end{equation}
             where
-            $$ F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1 $$
+            \begin{equation}
+                F_0\left[x\right] = \frac{\sqrt{\pi}erf(\sqrt{x})}{2\sqrt{x}} \quad \& \quad F_0\left[0\right] = 1\label{F0}
+            \end{equation}
             and some shorthand symbols
             $$ \textbf{R}_{\sigma,\textbf{T}} = \textbf{R}_{\sigma}-\textbf{T} $$
             $$ \textbf{R}_{\mu i,\nu j,\textbf{T}} = \frac{\alpha_i\textbf{R}_{\mu}+\alpha_j\textbf{R}_{\nu,\textbf{T}}}{\alpha_i+\alpha_j} $$
@@ -259,7 +285,7 @@
                 V_{\mu p,\nu q}^L(\textbf{k}) = -\sum_{\sigma}\sum_{\textbf{G}\neq 0}\sum_{ij\textbf{T}}V(\textbf{G})S_{\mu pi,\nu qj,\textbf{T}}
                 \exp\left[-i\textbf{G}\cdot(\textbf{R}_{\sigma}-\textbf{R}_{\mu i,\nu j,\textbf{T}})\right]\exp\left[-\frac{G^2}{4(\alpha_i+\alpha_j)}\right]\label{localp_real}
             \end{equation}
-            (caution: something is still wrong with this equation \eqref{localp_real}.)
+            (caution: something is still wrong with eq.\eqref{localp_real}.)
             In practice, obtaining $V(\textbf{r})$ from FFT and do numerical integration in a unit cell is a more economic way.
             \begin{equation*}
                 v^L(\textbf{r}) = \sum_{\sigma}v(\textbf{r}-\textbf{R}_{\sigma}) = 
@@ -276,19 +302,19 @@
             \end{equation}
             In order to get local potential on the uniform grid in a unit cell, 
             we need do FFT on reciprocal lattice $\textbf{G}$.
-            Take the 1D situation as an example.
+            Take the 1D case as an example.
             The 1D uniform grid in a unit cell $L$ is
             $$ 0,\frac{L}{n},\frac{2L}{n},\dots,\frac{(N-1)L}{n} $$
             The 1D reciprocal lattice is
             $$ 0,\frac{2\pi}{L},\frac{4\pi}{L},\dots,\frac{2(n-1)\pi}{L} $$
             The 1D inverse DFT is defined as
             \begin{equation}
-                a_m = {\rm FFT}(A_k) = \frac{1}{n}\sum_{k=0}^{n-1}A_k\exp\left\{2\pi i\frac{mk}{n}\right\}
+                a_m = {\rm iFFT}(A_k) = \frac{1}{n}\sum_{k=0}^{n-1}A_k\exp\left\{2\pi i\frac{mk}{n}\right\}
             \end{equation}
             So the 1D local potential is
             \begin{equation}
                 v^l(m\frac{L}{n}) = -n\cdot\frac{1}{n}\sum_{k=0}^{n-1}V(G_k)\exp\left\{i\cdot k\frac{2\pi}{L}\cdot m\frac{L}{n}\right\}
-                = -n\cdot {\rm FFT}\left[V(G_k)\right]\ {\rm for}\ m = 0,1,\dots,n-1
+                = -n\cdot {\rm iFFT}\left[V(G_k)\right]\ {\rm for}\ m = 0,1,\dots,n-1
             \end{equation}
             where the mapping of $G_k$ to $G$ is
             \begin{equation}
@@ -297,21 +323,192 @@
                     (k-n)\frac{2\pi}{L}, & if\ n/2\leq k<n
                 \end{cases}
             \end{equation}
-
-        \subsubsection{Integtals in reciprocal space}
-            The \textbf{overlap} integral of reciprocal-space integration is
-            \begin{equation}
-                S_{\mu p,\nu q}(\textbf{k}) = \Omega\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}
-            \end{equation}
-            The \textbf{kinetic} integral of reciprocal-space integration is
-            \begin{equation}
-                T_{\mu p,\nu q}(\textbf{k}) = \frac{\Omega}{2}\sum_{\textbf{G}}\phi_{\textbf{k},p}(\textbf{G})\phi_{\textbf{k},q}(\textbf{G})e^{i(\textbf{G}+\textbf{k})\cdot(\textbf{R}_{\mu}-\textbf{R}_{\nu})}\cdot (\textbf{G}+\textbf{k})^2
-            \end{equation}
             The \textbf{local potential} integral of reciprocal-space integration is
             \begin{equation}
-                V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k},p}(\textbf{G}_1)\phi_{\textbf{k},q}(\textbf{G}_2)e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
+                V_{\mu p,\nu q}^L(\textbf{k}) = -\Omega\sum_{\textbf{G}_1\textbf{G}_2}\phi_{\textbf{k}p}(\textbf{G}_1)\phi_{\textbf{k}q}(\textbf{G}_2)
+                e^{i(\textbf{G}_1+\textbf{k})\cdot\textbf{R}_{\mu}}e^{-i(\textbf{G}_2+\textbf{k})\cdot\textbf{R}_{\nu}}S(\textbf{G}_1-\textbf{G}_2)V(\textbf{G}_1-\textbf{G}_2)
+            \end{equation}         
+            
+            
+        \subsubsection{Hartree and Exchange}
+            The \textbf{Hartree} and \textbf{Exchange} term matrix element\cite{McClain2017} is given by
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})
+                \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k}q}(\textbf{r})\label{hartree}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \int d\textbf{r}'\ \phi_{\textbf{k}p}^*(\textbf{r})
+                \frac{\rho(\textbf{r},\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\phi_{\textbf{k}q}(\textbf{r}')\label{exchange}
+            \end{equation}
+            where the electron density $\rho(\textbf{r},\textbf{r}')$ is an average of all k-points in the Brillouin zone
+            \begin{align}
+                \rho(\textbf{r},\textbf{r}') &= \frac{2}{N_k}\sum_{\textbf{k}}\sum_m^{occ}\psi_{\textbf{k}m}(\textbf{r})\psi_{\textbf{k}m}^*(\textbf{r}')\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{rs}P_{rs}(\textbf{k})\phi_{\textbf{k}r}(\textbf{r})
+                    \phi_{\textbf{k}s}^*(\textbf{r}')
+            \end{align}
+            and the one electron density is
+            \begin{equation}
+                \rho(\textbf{r}) = \rho(\textbf{r},\textbf{r}) = \frac{1}{N_k}\sum_{\textbf{k}}\sum_{rs}
+                P_{rs}(\textbf{k})\rho_{r\textbf{k},s\textbf{k}}(\textbf{r})
+            \end{equation}
+            the density matrix is given by
+            \begin{equation}
+                P_{rs}(\textbf{k}) = 2\sum_m^{occ}C_{rm}(\textbf{k})C_{sm}^*(\textbf{k})
+            \end{equation}
+            the coefficients $C_{rm}$ are molecular orbital coefficients
+            \begin{equation}
+                \psi_{\textbf{k}m}(\textbf{r}) = \sum_{r}C_{rm}(\textbf{k})\phi_{\textbf{k}r}(\textbf{r})
+            \end{equation} 
+            in practical code the Hartree matrix eq.\eqref{hartree} is given by
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \int_{\Omega}d\textbf{r}\ \phi_{\textbf{k}p}^*(\textbf{r})
+                v_H(\textbf{r})\phi_{\textbf{k}q}(\textbf{r})\label{hartree_code}
+            \end{equation}
+            in terms of Hartree potential
+            \begin{equation}
+                v_H(\textbf{r}) = \int d\textbf{r}'\ \rho(\textbf{r}')\frac{1}{\left|\textbf{r}-\textbf{r}'\right|} 
+                = \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}\frac{\rho(\textbf{G})}{G^2}e^{i\textbf{G}\cdot\textbf{r}}
+            \end{equation}
+            where
+            \begin{align}
+                \rho(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{rs}P_{rs}(\textbf{k})\int_{\Omega}d\textbf{r}\ 
+                    \phi_{\textbf{k}r}(\textbf{r})\phi_{\textbf{k}s}^*(\textbf{r})e^{-i\textbf{G}\cdot\textbf{r}}\notag\\
+                &= \frac{1}{N_k}\sum_{\textbf{k}}\sum_{rs}P_{rs}(\textbf{k})\rho_{r\textbf{k},s\textbf{k}}(\textbf{G})
+            \end{align}
+            the exchange matrix is given by
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}P_{rs}(\textbf{k}')\int_{\Omega} d\textbf{r}\ 
+                \phi_{\textbf{k}p}^*(\textbf{r})v_{q\textbf{k},s\textbf{k}'}^X(\textbf{r})\phi_{\textbf{k}'r}(\textbf{r})
+            \end{equation}
+            in terms of exchange potential
+            \begin{align}
+                v_{q\textbf{k},s\textbf{k}'}^X(\textbf{r}) 
+                &= \int d\textbf{r}'\ \frac{\phi_{\textbf{k}q}(\textbf{r}')
+                    \phi_{\textbf{k}'s}^*(\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\notag\\
+                &= \int d\textbf{r}'\ \frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{r}')}{\left|\textbf{r}-\textbf{r}'\right|}\notag \\
+                &= \frac{4\pi}{\Omega}\sum_{\textbf{G}}^{,}\frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})}
+                    {\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+            \end{align}
+            where
+            \begin{equation}
+                \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r}) = \phi_{\textbf{k}q}(\textbf{r})\phi_{\textbf{k}'s}^*(\textbf{r}) 
+                = \sum_{\textbf{G}}\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})e^{i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}
+            \end{equation}
+            \begin{align}
+                \rho_{q\textbf{k},s\textbf{k}'}(\textbf{G}) &= \int_{\Omega}d\textbf{r}\ \rho_{q\textbf{k},s\textbf{k}'}(\textbf{r})
+                e^{-i(\textbf{k}-\textbf{k}'+\textbf{G})\cdot\textbf{r}}\\
+                & = \sum_{\textbf{T}}e^{i\textbf{k}'\cdot\textbf{T}}\int d\textbf{r}\ \varphi_q(\textbf{r})
+                \varphi_s^*(\textbf{r}-\textbf{T})e^{-i(\textbf{G}+\textbf{k}'-\textbf{k})\cdot\textbf{r}}\\
+                & = \left(\frac{2\sqrt{\alpha_s\alpha_q}}{\alpha_s+\alpha_q}\right)^{\frac{3}{2}}e^{-\frac{G^2}{4(\alpha_s+\alpha_q)}}
+                \sum_{\textbf{T}}e^{i\textbf{k}\cdot\textbf{T}}e^{-\alpha_{sq}|\textbf{R}_s-\textbf{R}_q-\textbf{T}|^2}
+                e^{-\frac{i\textbf{G}}{\alpha_s+\alpha_q}\cdot\left[\alpha_s\textbf{R}_s+\alpha_q(\textbf{R}_q+\textbf{T})\right]}
+            \end{align}
+            So we can get the expression of Hartree and exchange matrix
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}
+                P_{rs}(\textbf{k}')\sum_{\textbf{G}\neq 0}\frac{\rho_{r\textbf{k}',s\textbf{k}'}(\textbf{G})\rho_{q\textbf{k},p\textbf{k}}(-\textbf{G})}{G^2}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\frac{1}{N_k}\sum_{\textbf{k}'}\sum_{rs}P_{rs}(\textbf{k}')
+                \sum_{\textbf{G}}^{,}\frac{\rho_{q\textbf{k},s\textbf{k}'}(\textbf{G})
+                \rho_{r\textbf{k}',p\textbf{k}}(-\textbf{G})}{\left|\textbf{k}-\textbf{k}'+\textbf{G}\right|^2}
+            \end{equation}
+            If we just need the HF result on a \textbf{single k-point},
+            the Hartree and exchange matrix turn out to be quite easy.
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})
+                \sum_{\textbf{G}\neq 0}\frac{\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})}{G^2}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})
+                \sum_{\textbf{G}\neq 0}\frac{\rho_{qs}(\textbf{G})\rho_{rp}(-\textbf{G})}{G^2}
+            \end{equation}
+            define the four-center two-electron repulsion integrals
+            \begin{equation}
+                (pr|sq)_{\textbf{k}} = \sum_{\textbf{G}\neq 0}\frac{\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})}{G^2}
+            \end{equation}
+            Then
+            \begin{equation}
+                J_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})(pr|sq)_{\textbf{k}}
+            \end{equation}
+            \begin{equation}
+                K_{pq}(\textbf{k}) = \frac{4\pi}{\Omega}\sum_{rs}P_{rs}(\textbf{k})(pq|sr)_{\textbf{k}}
+            \end{equation}
+
+        \subsubsection{Range Separation}
+            In the previous part, we have used a lot of fourier transform while getting Coulomb repulsion.
+            Range separation\cite{sun2020exact,Ye2021} is a method to get the long-range and short-range part of Coulomb repulsion separately.
+            It is commonly used in the calculation of nuclear-nuclear repulsion (Ewald sum), 
+            electron Coulomb repulsion and exchange and so on.
+            We can use error function\cite{Ye2021} or gaussian function\cite{SHIMAZAKI2016132} to separate the Coulomb potential.
+            Here we take the error function as an example.
+            The long-range and short-range part is separated by error function (erf) and complementary error function (erfc).
+            \begin{align}
+                {\rm erf}(x) = \frac{2}{\sqrt{\pi}}\int_{0}^{x}e^{-t^2}dt\\
+                {\rm erfc}(x) = 1-{\rm erf}(x)
+            \end{align}
+            the Coulomb potential could be devided into two parts
+            \begin{equation}
+                \frac{1}{r} = \frac{{\rm erf}(r)}{r} + \frac{{\rm erfc}(r)}{r}
+            \end{equation}
+            and the Coulomb potential of PBC system
+            \begin{align}
+                v(\textbf{r}) &= -\sum_{\textbf{T}}\frac{1}{|\textbf{r}-\textbf{T}|} = 
+                -\sum_{\textbf{T}}\frac{{\rm erf}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|} 
+                -\sum_{\textbf{T}}\frac{{\rm erfc}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|}\notag\\
+                &= -\frac{4\pi}{\Omega}\sum_{\textbf{G}}\frac{\exp\left(-\frac{G^2}{4\omega}\right)}{G^2}e^{i\textbf{G}\cdot\textbf{r}} 
+                -\sum_{\textbf{T}}\frac{{\rm erfc}(\omega |\textbf{r}-\textbf{T}|)}{|\textbf{r}-\textbf{T}|}
+            \end{align} 
+            The first term is a summation of all reciprocal lattice vector,
+            the second term is a summation on real space.
+            Both parts converge faster than before.
+            We can also use this trick on getting electron repulsion integrals (ERIs).
+            Take the \textbf{single k-point} case as an example
+            \begin{align}
+                (pr|sq)_{\textbf{k}} &= \frac{4\pi}{\Omega}\sum_{\textbf{G}\neq 0}
+                \frac{\exp(-\frac{G^2}{4\omega})}{G^2}\rho_{rs}(\textbf{G})\rho_{qp}(-\textbf{G})\notag\\
+                &+ \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
+                \frac{{\rm erfc}(\omega\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|)}{\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|}
+                \rho_{qp}(\textbf{r})\rho_{rs}(\textbf{r}')
+            \end{align}
+            The first term is the long-range (LR) term.
+            Less $\textbf{G}$ is required to converge the integrals due to the factor $\exp(-\frac{G^2}{4\omega})$.
+            The second term is the short-range (SR) term.
+            The short-range Coulomb potential $\frac{{\rm erfc}(\omega r)}{r}$ has the inverse fourier transform form
+            \begin{equation}
+                \frac{{\rm erfc}(\omega r)}{r} = \frac{1}{(2\pi)^3}\int d\textbf{k}\ \frac{4\pi}{k^2}\left[1-e^{-\frac{k^2}{4\omega^2}}\right]e^{i\textbf{k}\cdot\textbf{r}}
+            \end{equation}
+            So the short-range (SR) term 
+            \begin{align}
+                &(pr|sq)_{\textbf{k}}^{SR} = \sum_{\textbf{T}}\iint_{\Omega}d\textbf{r}d\textbf{r}'\ 
+                \frac{{\rm erfc}(\omega\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|)}{\left|\textbf{r}-\textbf{r}'+\textbf{T}\right|}
+                \rho_{qp}(\textbf{r})\rho_{rs}(\textbf{r}')\notag\\
+                &= \frac{1}{(2\pi)^3}\sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}
+                \iiint d\textbf{r}d\textbf{r}'d\textbf{k}_1\ \varphi_p^*(\textbf{r})\varphi_q(\textbf{r}-\textbf{T}_1)
+                \varphi_s^*(\textbf{r}')\varphi_r(\textbf{r}'-\textbf{T}_2)
+                \frac{4\pi}{k_1^2}\left[1-e^{-\frac{k_1^2}{4\omega^2}}\right]e^{i\textbf{k}_1\cdot(\textbf{r}-\textbf{r}'+\textbf{T})}\notag\\
+                &= \frac{4}{\pi^2}\left[\frac{(\alpha_p\alpha_q\alpha_s\alpha_r)^{\frac{1}{2}}}{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}\right]^{\frac{3}{2}}
+                \sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}
+                \int d\textbf{k}_1\ \frac{1}{k_1^2}\left[1-e^{-\frac{k_1^2}{4\omega^2}}\right]
+                e^{-\frac{\alpha_p+\alpha_q+\alpha_r+\alpha_s}{4(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}k_1^2}
+                e^{i\textbf{k}_1\cdot(\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T})}\notag\\
+                &= \frac{16}{\sqrt{\pi}}\left[\frac{(\alpha_p\alpha_q\alpha_s\alpha_r)^{\frac{1}{2}}}{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}\right]^{\frac{3}{2}}
+                \sum_{\textbf{T},\textbf{T}_1,\textbf{T}_2}e^{i\textbf{k}\cdot(\textbf{T}_1+\textbf{T}_2)}\notag\\
+                &\qquad\quad\left[\sqrt{\gamma_{pqrs}}F_0(\gamma_{pqrs}\left|\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T}\right|^2)
+                -\sqrt{\frac{\gamma_{pqrs}\omega^2}{\gamma_{pqrs}+\omega^2}}F_0(\frac{\gamma_{pqrs}\omega^2}{\gamma_{pqrs}+\omega^2}
+                \left|\textbf{R}_{p,q\textbf{T}_1}-\textbf{R}_{s,r\textbf{T}_2}+\textbf{T}\right|^2)\right]
+            \end{align}
+            where $F_0(x)$ follows eq.\eqref{F0}, and $\gamma_{pqrs}$ is
+            \begin{equation}
+                \gamma_{pqrs} = \frac{(\alpha_p+\alpha_q)(\alpha_r+\alpha_s)}{\alpha_p+\alpha_q+\alpha_r+\alpha_s}
             \end{equation}
             
+        
+        \subsubsection{Density Fitting}
+            Density fitting (DF) or resolution of identity (RI) approximation is a method to approximate the four-index ERIs by two- and three-index tensors.
+
+
         % \subsubsection{Electron interaction}
         %     The interaction matrix element
         %     \begin{equation}
@@ -338,16 +535,20 @@
         %         (2E_{p\mu r\gamma,q\nu s\eta}-E_{p\mu r\gamma,s\eta q\nu})C_{r\gamma,k}^*C_{s\eta,k}
         %     \end{equation}
 
-    \subsection{Solution of generalized eigenvalue problem}
-        Hamiltonian matrix element without interaction
+    \subsection{Solution of generalised eigenvalue problem}
+        Core Hamiltonian matrix element without interaction
         \begin{equation}
-            H_{\mu p,\nu q}(\textbf{k}) = T_{\mu p,\nu q}(\textbf{k}) + V_{\mu p,\nu q}^L(\textbf{k})
+            \textbf{H}(\textbf{k}) = \textbf{T}(\textbf{k}) + \textbf{V}^L(\textbf{k})
+        \end{equation}
+        Fock operator
+        \begin{equation}
+            \textbf{F}(\textbf{k}) = \textbf{H}(\textbf{k})+\textbf{J}(\textbf{k})-\frac{1}{2}\textbf{K}(\textbf{k})
         \end{equation}
         Roothaan equation
         \begin{equation}
-            \textbf{HC}_k = \epsilon_k\textbf{SC}_k
+            \textbf{F}(\textbf{k})\textbf{C}(\textbf{k}) = \epsilon(\textbf{k})\textbf{S}(\textbf{k})\textbf{C}(\textbf{k})
         \end{equation}
-        These bases are not orthogonal to each other. 
+        This is a generalised eigenvalue problem since these bases are not orthogonal to each other. 
         To change the bases, solve the eigenvalue equation of $\textbf{S}$
         $$ \textbf{SU} = \textbf{Us} $$
         Then the unitary matrix $\textbf{U}$ can diagonalise $\textbf{S}$
@@ -369,25 +570,71 @@
         \begin{equation}
             \textbf{H}'\textbf{C}' = \textbf{C}'\textbf{E}
         \end{equation}
-        The ground state energy
+        Solve this eigenvalue problem then we can get the eigenvalues $\textbf{E}$ and the eigenstate $\textbf{C}'$
+        Then the eigenstate of the generalised eigenvalue problem is
         \begin{equation}
-            E_g = 2\sum_k\epsilon_k
+            \textbf{C} = \textbf{V}\textbf{C}'
         \end{equation}
+        The elements in matrix $\textbf{C}$ are coefficients transform the atomic orbitals to molecular orbitals.
+        The shape of $\textbf{C}(\textbf{k})$ is $(n_{ao}, n_{mo})$.
+        In hydrogen problem, assuming $N$ hydrogen atoms per unit cell, 
+        the HF determinant includes the $N_kN$ orbitals with the lowest eigenvalues out of all k-points.
+        We can get the density matrix
+        \begin{equation}
+            P_{rs}(\textbf{k}) = 2\sum_m^{occ}C_{rm}(\textbf{k})C_{sm}^*(\textbf{k})
+        \end{equation}
+        The energy is
+        \begin{equation}
+            E(\textbf{k}) = \frac{1}{2}\sum_{pq}\left[F_{pq}(\textbf{k})+H_{pq}(\textbf{k})\right]P_{qp}(\textbf{k})
+        \end{equation}
+        Note that the nuclear-nuclear repulsion,
+        which is computed using the Ewald expression, is excluded from this energy.
+        The molecular orbitals are
+        \begin{equation}
+            \psi_{\textbf{k}m}(\textbf{r}) = \sum_{r}C_{rm}(\textbf{k})\phi_{\textbf{k}r}(\textbf{r})
+        \end{equation} 
+
         % One method is turning the equation into 
         % $$ (\textbf{S}^{-1}\textbf{H})\textbf{C} = \textbf{CE} $$
         % Solve the new eigenvalue equation, notice that $(\textbf{S}^{-1}\textbf{H})$ is non-Hermitian matrix.\par
+
+\bibliographystyle{unsrt}
+\bibliography{refs}
+
+\section*{Appendix}
+    \subsection*{Fourier Transform of Coulomb Potential}
+        Consider the Yukawa potential (\href{https://blog.cupcakephysics.com/electromagnetism/math%20methods/2014/10/04/the-fourier-transform-of-the-coulomb-potential.html}{reference})
+        \begin{equation}
+            V_\lambda(\textbf{r}) = \frac{e^{-\lambda r}}{r}
+        \end{equation}
+        The fourier transform of Yukawa potential is
+        \begin{align}
+            \mathcal{F}[V_\lambda(r)] &= \int \frac{e^{-\lambda r}}{r} e^{-i\textbf{k}\cdot\textbf{r}} d^3r\notag\\
+            &= \int_0^{2\pi}d\phi \int_0^\pi d\theta \int_0^\infty dr \frac{e^{-\lambda r}}{r}e^{-ikr cos\theta}r^2sin\theta\notag\\
+            &= 2\pi\int_{-1}^1du \int_0^\infty dr\ re^{-\lambda r} e^{-ikru}\notag\\
+            &= 2\pi \int_0^\infty dr\ re^{-\lambda r} \frac{1}{-ikr}\left[e^{-ikru}\right]_{-1}^1\notag\\
+            &= \frac{2\pi}{ik} \int_0^\infty dr\ e^{-\lambda r} \left[e^{ikr}-e^{-ikr}\right]\notag\\
+            &= \frac{2\pi}{ik} \int_0^\infty dr\ \left[e^{(ik-\lambda)r}-e^{-(ik+\lambda)r}\right]\notag\\
+            &= \frac{2\pi}{ik} \left[\frac{e^{(ik-\lambda)r}}{ik-\lambda}+\frac{e^{-(ik+\lambda)r}}{ik+\lambda}\right]_0^\infty\notag\\
+            &= \frac{2\pi}{ik} \left[\frac{-(ik+\lambda)e^{(ik-\lambda)r}-(ik-\lambda)e^{-(ik+\lambda)r}}{k^2+\lambda^2}\right]_0^\infty\notag\\
+            &= \frac{2\pi}{ik} \left[\frac{-ike^{(ik-\lambda)r}-\lambda e^{(ik-\lambda)r}-ike^{-(ik+\lambda)r}+\lambda e^{-(ik+\lambda)r}}{k^2+\lambda^2}\right]_0^\infty\notag\\
+            &= \frac{2\pi}{ik} \left[\frac{ik+\lambda+ik-\lambda}{k^2+\lambda^2}\right]\notag\\
+            &= \frac{4\pi}{k^2+\lambda^2}
+        \end{align}
+        When $\lambda=0$,
+        \begin{equation}
+            \mathcal{F}[V(\textbf{r})] = \frac{4\pi}{k^2}
+        \end{equation}
+        In the same way, for the short-range Coulomb potential
+        \begin{equation}
+            V^{SR}(\textbf{r}) = \frac{{\rm erfc}(\omega r)}{r}
+        \end{equation}
+        The fourier transform is
+        \begin{align}
+            \mathcal{F}[V^{SR}(\textbf{r})] &= \int \frac{{\rm erfc}(\omega r)}{r} e^{-i\textbf{k}\cdot\textbf{r}} d^3r\notag\\
+            &= \frac{2\pi}{ik} \int_0^\infty dr\ {\rm erfc}(\omega r)\left[e^{ikr}-e^{-ikr}\right]\notag\\
+            &= \frac{4\pi}{k} \int_0^\infty dr\ {\rm erfc}(\omega r)\sin(kr)\notag\\
+            &= \frac{4\pi}{k^2} \left[1-e^{-\frac{k^2}{4\omega^2}}\right]
+        \end{align}
         
-% \section{Molecule orbitals}
-
-\section{Wave function}
-
-% \section{Density}
-
-% \section{Gradient logpsi}
-
-% \section{Laplacian logpsi}
-
-\section*{Notation}
-
-
 \end{document}

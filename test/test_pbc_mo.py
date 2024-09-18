@@ -2,7 +2,7 @@ from config import *
 from pyscf.pbc import gto, scf
 from hqc.pbc.mo import make_hf
 
-def zerovee(L, xp, basis, kpt):
+def pyscf_hf(L, xp, basis, kpt):
 
     """
         hartree fock without Vee pyscf benchmark.
@@ -28,18 +28,18 @@ def zerovee(L, xp, basis, kpt):
     # kpts = gtocell.make_kpts([1,1,1],scaled_center=[0,0,0])
     kmf = scf.khf.KRHF(gtocell, kpts=kpts)
     kmf.verbose = 0
-    kmf.max_cycle = 1
-    kmf.get_veff = lambda *args: np.zeros(kmf.get_hcore().shape)
     kmf.kernel()
 
     # ovlp = kmf.get_ovlp()
-    # K = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
+    # T = scf.hf.get_t(kmf.cell, kpt=kmf.kpts)[0]
     # V = scf.hf.get_pp(kmf.cell, kpt=kmf.kpts[0])
     # Hcore = scf.hf.get_hcore(kmf.cell, kpt=kmf.kpts)[0]
     # c2 = kmf.mo_coeff[0]
+    # dm = kmf.make_rdm1()
     # print("pyscf overlap:\n", ovlp)
-    # print("pyscf T:\n", K)
+    # print("pyscf T:\n", T)
     # print("pyscf V:\n", V)
+    # print("pyscf densigy matrix:\n", dm)
 
     return Ry*(kmf.e_tot - kmf.energy_nuc())
 
@@ -55,17 +55,18 @@ def test_pbc_mo():
 
     basis_set = ['gth-szv', 'gth-dzv']
     for basis in basis_set:
+        print("basis:", basis)
 
         # PBC energy test
         hf = make_hf(n, L, basis)
         E = hf(xp, k0)
-        E_pyscf = zerovee(L, xp, basis, k0)
-        print("E:\n", E, "\npyscf E:\n", E_pyscf)
+        E_pyscf = pyscf_hf(L, xp, basis, k0)
+        print("\nE:\n", E, "\npyscf E:\n", E_pyscf)
         assert np.allclose(E, E_pyscf, rtol=1e-4)
 
         # TBC energy test
         E_twist = hf(xp, twist)
-        E_pyscf_twist = zerovee(L, xp, basis, twist)
+        E_pyscf_twist = pyscf_hf(L, xp, basis, twist)
         print("E:\n", E_twist, "\npyscf E:\n", E_pyscf_twist)
         assert np.allclose(E_twist, E_pyscf_twist, rtol=1e-4)
 

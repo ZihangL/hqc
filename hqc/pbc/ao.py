@@ -3,6 +3,9 @@ import jax.numpy as jnp
 import numpy as np
 
 const = (2 / jnp.pi)**0.75
+coeff_sto3g = jnp.array([[3.42525091, 0.15432897],
+                        [0.62391373, 0.53532814],   
+                        [0.16885540, 0.44463454]])
 coeff_gthszv = jnp.array([[8.3744350009, -0.0283380461],
                         [1.8058681460, -0.1333810052],
                         [0.4852528328, -0.3995676063],
@@ -42,6 +45,8 @@ def make_ao(lattice, basis):
     """
     if basis == 'gth-szv':
         coeff = coeff_gthszv
+    elif basis == 'sto-3g':
+        coeff = coeff_sto3g
     elif basis == 'gth-dzv':
         coeff = coeff_gthdzv
 
