@@ -15,7 +15,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
             diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0,
             use_jit=True, dft=False, xc='lda,vwn',
             smearing=False, smearing_method='fermi', smearing_sigma=0.,
-            search_method='bisect', search_cycle=100, search_tol=1e-7):
+            search_method='newton', search_cycle=100, search_tol=1e-7):
     """
         Make PBC Hartree Fock function.
         INPUT:
