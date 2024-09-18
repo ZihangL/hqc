@@ -3,3 +3,4 @@ doc/*.aux
 doc/*.dvi
 doc/*.gz
 *.egg-info
+outputs/
