@@ -1,6 +1,10 @@
+import jax
 import numpy as np
-from pyscf.pbc import dft, gto, scf
+import jax.numpy as jnp
+from pyscf.pbc import gto, dft, scf
+from hqc.pbc.lcao import make_lcao
 from hqc.basis.parse import load_as_str
+jax.config.update("jax_enable_x64", True)
 
 def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, smearing_method='fermi'):
     """
@@ -53,6 +57,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
 
     return mo_coeff, bands * Ry 
 
+
 def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, smearing_method='fermi'):
     """
         Pyscf DFT solver for hydrogen.
@@ -98,3 +103,98 @@ def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, sm
     # print("pyscf e_nuc (Ha):", kmf.energy_nuc())
     
     return mo_coeff, bands * Ry
+
+
+def test_hf():
+    n, dim = 4, 3
+    rs = 1.5
+    basis_set = ['gth-szv', 'gth-dzv', 'gth-dzvp']
+    rcut = 24
+    grid_length = 0.12
+    dft = False
+    smearing = False
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    
+    print(print("\n============= begin test ============="))
+    print("n:", n)
+    print("rs:", rs)
+    print("L:", L)
+    print("basis_set:", basis_set)
+    print("rcut:", rcut)
+    print("grid_length:", grid_length)
+    print("hf:", not dft)
+    print("smearing:", smearing)
+    print("xp:\n", xp)
+
+    for basis in basis_set:
+        print("\n==========", basis, "==========")
+
+        # PBC energy test
+        mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, 0, xp, basis, smearing=smearing)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing)
+        mo_coeff, bands = lcao(xp)
+
+        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
+        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
+        print("mo_coeff:\n", mo_coeff)
+        print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
+
+        print("bands:\n", bands)
+        print("bands_pyscf:\n", bands_pyscf)
+        assert np.allclose(bands, bands_pyscf, atol=1e-3)
+
+        # vmap test
+        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+        jax.vmap(lcao, 0, (0, 0))(xp2)
+        
+
+def test_dft():
+    n, dim = 4, 3
+    rs = 1.5
+    basis_set = ['gth-szv', 'gth-dzv', 'gth-dzvp']
+    rcut = 24
+    grid_length = 0.12
+    dft = True
+    xc = "lda,vwn"
+    smearing = False
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    
+    print(print("\n============= begin test ============="))
+    print("n:", n)
+    print("rs:", rs)
+    print("L:", L)
+    print("basis_set:", basis_set)
+    print("rcut:", rcut)
+    print("grid_length:", grid_length)
+    print("dft:", dft)
+    print("smearing:", smearing)
+    print("xp:\n", xp)
+
+    for basis in basis_set:
+        print("\n==========", basis, "==========")
+
+        # PBC energy test
+        mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, 0, xp, basis, xc=xc, smearing=smearing)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, xc=xc, smearing=smearing)
+        mo_coeff, bands = lcao(xp)
+
+        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
+        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
+        print("mo_coeff:\n", mo_coeff)
+        print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
+        
+        print("bands:\n", bands)
+        print("bands_pyscf:\n", bands_pyscf)
+        assert np.allclose(bands, bands_pyscf, atol=1e-3)
+
+        # vmap test
+        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+        jax.vmap(lcao, 0, (0, 0))(xp2)

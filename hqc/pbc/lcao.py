@@ -5,8 +5,8 @@ from functools import partial
 from jax import vmap, grad, jit, jacfwd
 
 from hqc.pbc.gto import make_pbc_gto
-from hqc.pbc.smearing import make_occupation_func
-from hqc.pbc.excor import make_exchange_func, make_correlation_func
+from hqc.tools.smearing import make_occupation_func
+from hqc.tools.excor import make_exchange_func, make_correlation_func
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
 
 
