@@ -7,7 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 jax.config.update("jax_enable_x64", True)
 
 from hqc.pbc.lcao import make_lcao
-from hqc.pbc.pyscf import pyscf_hf, pyscf_dft
+from test_pbc_lcao import pyscf_hf, pyscf_dft
 
 @hydra.main(version_base=None, config_path="conf", config_name="scfrandom")
 def main(cfg : DictConfig) -> None:
