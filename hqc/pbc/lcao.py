@@ -333,7 +333,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # # hf time: 7.2888023853302 (no jit)
         # # max batchsize 40 (jit)
         # # hf time: 2.2167017459869385 (jit)
-        # eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
+        eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
 
         # # for x
         # # max batchsize 68 (no jit)
@@ -368,15 +368,15 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.lax.scan
         # max batchsize 108 (jit)
         # hf time: 11.287713766098022 (jit)
-        VG1 = VG.reshape(n_grid3)
-        rhoG = rhoG.reshape(n_grid3, n_ao, n_ao)
-        eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
-        def body_fun(carry, x):
-            carry += jnp.einsum('rs,qp->prsq', x[1], x[1])*x[0]
-            return carry, 0
-        eris, _ = jax.lax.scan(body_fun, eris, xs=[VG1, rhoG], length=n_grid3, unroll=n_grid**2)
+        # VG1 = VG.reshape(n_grid3)
+        # rhoG = rhoG.reshape(n_grid3, n_ao, n_ao)
+        # eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
+        # def body_fun(carry, x):
+        #     carry += jnp.einsum('rs,qp->prsq', x[1], x[1])*x[0]
+        #     return carry, 0
+        # eris, _ = jax.lax.scan(body_fun, eris, xs=[VG1, rhoG], length=n_grid3, unroll=n_grid**2)
 
-        del rhoG
+        # del rhoG
         eris0 = jnp.einsum('rs,qp->prsq', rhoG0, rhoG0)*4*jnp.pi/L/jnp.linalg.det(cell)**(1/3)*unknown1
 
         return vep, eris, eris0
