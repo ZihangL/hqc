@@ -1,9 +1,10 @@
-mode: memory
+mode: speed
 method: dft
 xc: lda,vwn
 basis: gth-dzv
 rcut: 24.0
-batchsize: 420
+batchsize: 333
+totalbatch: 1000
 batchid: 0
 num: 18
 rs: 1.86

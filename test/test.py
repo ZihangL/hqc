@@ -9,7 +9,7 @@ jax.config.update("jax_enable_x64", True)
 from hqc.pbc.lcao import make_lcao
 from test_pbc_lcao import pyscf_hf, pyscf_dft
 
-@hydra.main(version_base=None, config_path="conf", config_name="scfrandom")
+@hydra.main(version_base=None, config_path="conf", config_name="speed")
 def main(cfg : DictConfig) -> None:
     
     print("\n========== test config ==========")
@@ -38,6 +38,9 @@ def main(cfg : DictConfig) -> None:
     print("test mode:", cfg.mode)
     if cfg.mode == "memory":
         print("batchsize:", batchsize)
+    if cfg.mode == "speed":
+        print("batchsize:", batchsize)
+        print("total batch:", cfg.totalbatch)
     print("n:", n)
     print("L:", L)
     print("rs:", rs)
@@ -77,7 +80,10 @@ def main(cfg : DictConfig) -> None:
     print("initializing xp...")
     if cfg.mode == "random_scf" or cfg.mode == "memory" or cfg.mode == "search_random":
         key = jax.random.PRNGKey(43)
-        xp = jax.random.uniform(key, (batchsize, n, 3), minval=0, maxval=L)
+        xp = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
+    elif cfg.mode == "speed":
+        key = jax.random.PRNGKey(43)
+        xp = jax.random.uniform(key, (cfg.totalbatch//batchsize, batchsize, n, 3), minval=0., maxval=L)
     elif cfg.mode == "checkpoint_scf" or cfg.mode == "search_checkpoint":
         checkpoint_filename = "data/checkpoint/epoch_004140.pkl"
         data = load_data(checkpoint_filename)
@@ -145,7 +151,7 @@ def main(cfg : DictConfig) -> None:
     elif cfg.mode == "memory":
 
         print("vmap lcao...")
-        lcao = jax.vmap(lcao_novmap, 0, (0, 0, 0))
+        lcao = jax.vmap(lcao_novmap, 0, (0, 0))
 
         # run twice to compare the time
         time1 = time.time()
@@ -161,6 +167,30 @@ def main(cfg : DictConfig) -> None:
         # print("solver bands[0]:\n", bands[0])
         print("compile time:", time2-time1-time4+time3)
         print("run time:", time4-time3)
+        print("finished!")
+    
+    elif cfg.mode == "speed":
+
+        print("vmap lcao...")
+        lcao = jax.vmap(lcao_novmap, 0, (0, 0))
+
+        # run twice to compare the time
+        time1 = time.time()
+        mo_coeff, bands = lcao(xp[0])
+        time2 = time.time()
+
+        time1 = time.time()
+        print("total loop:" , xp.shape[0])
+        for i in range(xp.shape[0]):
+            time3 = time.time()
+            mo_coeff, bands = lcao(xp[i])
+            time4 = time.time()
+            print("loop:", i, "time:", time4-time3)
+        time2 = time.time()
+
+        print("\n========== solver ==========")
+        # print("solver bands[0]:\n", bands[0])
+        print("total time:", time2-time1)
         print("finished!")
         
 if __name__ == "__main__":
