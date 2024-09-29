@@ -31,14 +31,16 @@ def test_bcc_solid_hf():
     dft = False
     xc = "lda,vwn"
     smearing = False
-    sigma = 0.002
+    sigma = 0.1 # smearing parameter 
+    perturbation = 0.0 # perturbation strength for atom position
+    max_cycle = 100
 
     xp = make_atoms([2, 2, 2]) # bcc crystal
     n = xp.shape[0]
     L = (4/3*jnp.pi*n)**(1/3)
 
     key = jax.random.PRNGKey(42)
-    xp += jax.random.uniform(key, (n, dim), minval=0., maxval=L) * 0.1
+    xp += jax.random.uniform(key, (n, dim), minval=0., maxval=L) * perturbation
     xp = xp - L * jnp.floor(xp/L)
 
     print("\n============= begin test =============")
@@ -55,11 +57,11 @@ def test_bcc_solid_hf():
     for basis in basis_set:
         print("\n==========", basis, "==========")
         if dft: 
-            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing, max_cycle = max_cycle)
         else:
-            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing, max_cycle = max_cycle)
 
-        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
         mo_coeff, bands = lcao(xp)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))

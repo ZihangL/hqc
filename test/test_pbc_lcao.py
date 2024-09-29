@@ -6,7 +6,7 @@ from hqc.pbc.lcao import make_lcao
 from hqc.basis.parse import load_as_str
 jax.config.update("jax_enable_x64", True)
 
-def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, smearing_method='fermi'):
+def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, smearing_method='fermi', max_cycle = 50):
     """
         Pyscf Hartree Fock solver for hydrogen.
     INPUT:
@@ -19,6 +19,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
         hf0: if True, do Hartree Fock scf without Vpp.
         smearing: if True, use Fermi-Dirac smearing
             (finite temperature Hartree Fock or thermal Hartree Fock).
+        max_cycle: the maximum number of iterations.
     OUTPUT:
         mo_coeff: molecular orbitals coefficients, complex array of shape (n_ao, n_mo).
         bands: energy bands of corresponding molecular orbitals, 
