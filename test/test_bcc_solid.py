@@ -26,14 +26,14 @@ def test_bcc_solid_hf():
     dim = 3
     rs = 1.31
     basis_set = ['gth-szv'] # , 'gth-dzv', 'gth-dzvp']
-    rcut = 12
+    rcut = 24
     grid_length = 0.12
     dft = False
     xc = "lda,vwn"
     smearing = False
     sigma = 0.0 # smearing parameter 
-    perturbation = 0.1 # perturbation strength for atom position
-    max_cycle = 50
+    perturbation = 0.0 # perturbation strength for atom position
+    max_cycle = 100
 
     xp = make_atoms([2, 2, 2]) # bcc crystal
     n = xp.shape[0]
@@ -57,9 +57,9 @@ def test_bcc_solid_hf():
     for basis in basis_set:
         print("\n==========", basis, "==========")
         if dft: 
-            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing, max_cycle = max_cycle)
+            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
         else:
-            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing, max_cycle = max_cycle)
+            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
 
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
         mo_coeff, bands = lcao(xp)
