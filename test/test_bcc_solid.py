@@ -25,22 +25,22 @@ def make_atoms(
 def test_bcc_solid_hf():
     dim = 3
     rs = 1.31
-    basis_set = ['gth-szv'] #, 'gth-dzv', 'gth-dzvp']
-    rcut = 24
+    basis_set = ['gth-szv'] # , 'gth-dzv', 'gth-dzvp']
+    rcut = 12
     grid_length = 0.12
     dft = False
     xc = "lda,vwn"
     smearing = False
-    sigma = 0.1 # smearing parameter 
-    perturbation = 0.0 # perturbation strength for atom position
-    max_cycle = 100
+    sigma = 0.0 # smearing parameter 
+    perturbation = 0.1 # perturbation strength for atom position
+    max_cycle = 50
 
     xp = make_atoms([2, 2, 2]) # bcc crystal
     n = xp.shape[0]
     L = (4/3*jnp.pi*n)**(1/3)
 
     key = jax.random.PRNGKey(42)
-    xp += jax.random.uniform(key, (n, dim), minval=0., maxval=L) * perturbation
+    xp += jax.random.normal(key, (n, dim)) * perturbation
     xp = xp - L * jnp.floor(xp/L)
 
     print("\n============= begin test =============")
@@ -66,10 +66,15 @@ def test_bcc_solid_hf():
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
-        print (np.abs(mo_coeff - mo_coeff_pyscf).max())
-        print (np.abs(bands - bands_pyscf).max())
+        print ("coef diff", np.abs(mo_coeff - mo_coeff_pyscf).max())
+        print ("band diff", np.abs(bands - bands_pyscf).max())
 
         print("bands:\n", bands)
         print("bands_pyscf:\n", bands_pyscf)
+        
+        #np.set_printoptions(suppress=True)
+        #print("mo_coeff:\n", mo_coeff)
+        #print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        #print("diff:\n", mo_coeff- mo_coeff_pyscf)
 
 test_bcc_solid_hf()

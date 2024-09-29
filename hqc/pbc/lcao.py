@@ -763,7 +763,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(fp_cond_fun, fp_body_fun, (0., 0., mo_coeff, w1, 0, F_k, errvec_k))
 
         # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop-1)
+        jax.debug.print("end scf loop {x}", x=loop-1)
         # jax.debug.print("F_k:\n{x}", x=F_k)
         # jax.debug.print("errvec_k:\n{x}", x=errvec_k)
         # =====================================================
