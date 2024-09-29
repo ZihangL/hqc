@@ -28,7 +28,8 @@ def test_bcc_solid_hf():
     basis_set = ['gth-szv'] #, 'gth-dzv', 'gth-dzvp']
     rcut = 24
     grid_length = 0.12
-    dft = False
+    dft = True
+    xc = "lda,vwn"
     smearing = False
     sigma = 0.002
     L = (4/3*jnp.pi*n)**(1/3)
@@ -49,9 +50,11 @@ def test_bcc_solid_hf():
 
     for basis in basis_set:
         print("\n==========", basis, "==========")
+        if dft: 
+            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
+        else:
+            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
 
-        # PBC energy test
-        mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma)
         mo_coeff, bands = lcao(xp)
 
