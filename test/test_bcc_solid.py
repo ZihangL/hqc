@@ -98,7 +98,7 @@ def test_bcc_solid_hf_mcmc():
     rs = 1.31
     basis = 'gth-szv'
     rcut = 24
-    grid_length = 0.05
+    grid_length = 0.12
     smearing = False
     sigma = 0.0 # smearing parameter 
     perturbation = 0.0 # perturbation strength for atom position
@@ -115,6 +115,26 @@ def test_bcc_solid_hf_mcmc():
 
     # uniform
     #xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+
+    rs = 2.0
+    n = 14
+    s = jnp.array( [[0.222171,  0.53566,  0.579785],
+                    [0.779669,  0.464566,  0.37398],
+                    [0.213454,  0.97441,  0.753668],
+                    [0.390099,  0.731473,  0.403714],
+                    [0.756045,  0.902379,  0.214993],
+                    [0.330075,  0.00246738,  0.433778],
+                    [0.91655,  0.112157,  0.493196],
+                    [0.0235088,  0.117353,  0.628366],
+                    [0.519162,  0.693898,  0.761833],
+                    [0.902309,  0.377603,  0.763541],
+                    [0.00753097,  0.690769,  0.97936],
+                    [0.534081,  0.856997,  0.996808],
+                    [0.907683,  0.0194549,  0.91836],
+                    [0.262901,  0.287673,  0.882681]], dtype=jnp.float64)
+
+    L = (4/3*jnp.pi*n)**(1/3)
+    xp = s * L
 
     print("\n============= begin test =============")
     print("n:", n)

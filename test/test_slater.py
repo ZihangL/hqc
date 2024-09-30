@@ -218,7 +218,7 @@ def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     key, key_mcmc = jax.random.split(key)
     logpsi2_mcmc_novmap = lambda x: logpsi2(x, xp, mo_coeff)
     logpsi2_mcmc = jax.vmap(logpsi2_mcmc_novmap)
-    xe, acc = mcmc_ebes(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
+    xe, acc = mcmc(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
     xe -= L * jnp.floor(xe/L)
     return key, xe, acc
 
@@ -226,7 +226,7 @@ def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsiz
     key = jax.random.PRNGKey(42)
     xe = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
 
-    for ii in range(50):
+    for ii in range(10):
         key, xe, acc = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
         e, k, vpp, vep, vee = observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian)
 
@@ -376,9 +376,9 @@ def make_logpsi_grad_laplacian(logpsi):
 
 def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle):
     n = xp.shape[0]
-    batchsize = 1024
-    mc_steps = 1000
-    mc_width = 0.02
+    batchsize = 8192
+    mc_steps = 3000
+    mc_width = 0.04
 
     L = (4/3*jnp.pi*n)**(1/3)
    
