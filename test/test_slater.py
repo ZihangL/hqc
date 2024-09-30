@@ -299,19 +299,14 @@ def make_logpsi_grad_laplacian(logpsi):
 
     return logpsi_grad_laplacian
 
-def test_slater_hf():
-    n = 8
-    rs = 2.0
+def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle):
+    n = xp.shape[0]
     batchsize = 256
-    basis = 'gth-dzv'
-    grid_length = 0.12
     mc_steps = 100
     mc_width = 0.07
-   
-    L = (4/3*jnp.pi*n)**(1/3)
-    key = jax.random.PRNGKey(42)
-    xp = jax.random.uniform(key, (n, 3), minval=0., maxval=L)
 
+    L = (4/3*jnp.pi*n)**(1/3)
+   
     print("------- system information -------")
     print(f"n: {n}")
     print(f"rs: {rs} (Bohr)")
@@ -322,8 +317,9 @@ def test_slater_hf():
     print(f"mc_width: {mc_width}")
 
     print("------- HF and MC results -------")
-    hf = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=False, smearing=False)
-    mo_coeff, bands = hf(xp)
+
+    lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=False, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
+    mo_coeff, bands, E = lcao(xp)
     hf_orbitals = make_slater(n, L, rs, basis=basis, groundstate=True)
 
     logpsi = make_logpsi_hf(hf_orbitals)
@@ -336,6 +332,7 @@ def test_slater_hf():
     end_time = time.time()
     time_mc = end_time - start_time
 
+    print("E_hf:", E)
     print("etot:", etot)
     print("k:", k)
     print("vpp:", vpp)

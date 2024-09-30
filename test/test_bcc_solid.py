@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import itertools
 from hqc.pbc.lcao import make_lcao
+from test_slater import test_slater_hf
 
 from test_pbc_lcao import pyscf_dft, pyscf_hf
 jax.config.update("jax_enable_x64", True)
@@ -87,4 +88,38 @@ def test_bcc_solid_hf():
         #print("dm_pyscf:\n", dm_pyscf)
         #print("diff:\n", dm - dm_pyscf)
 
-test_bcc_solid_hf()
+    test_slater_hf(xp, rs)
+
+def test_bcc_solid_hf_mcmc():
+    dim = 3
+    rs = 1.31
+    basis = 'gth-szv'
+    rcut = 24
+    grid_length = 0.12
+    smearing = False
+    sigma = 0.0 # smearing parameter 
+    perturbation = 0.0 # perturbation strength for atom position
+    max_cycle = 50
+
+    xp = make_atoms([2, 2, 2]) # bcc crystal
+    n = xp.shape[0]
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    xp += jax.random.normal(key, (n, dim)) * perturbation
+    xp = xp - L * jnp.floor(xp/L)
+
+    print("\n============= begin test =============")
+    print("n:", n)
+    print("rs:", rs)
+    print("L:", L)
+    print("basis:", basis)
+    print("rcut:", rcut)
+    print("grid_length:", grid_length)
+    print("smearing:", smearing)
+    print("perturbation:", perturbation)
+    print("xp:\n", xp)
+
+    test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
+
+test_bcc_solid_hf_mcmc()
