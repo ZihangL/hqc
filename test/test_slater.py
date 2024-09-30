@@ -242,14 +242,15 @@ def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsiz
         vee_mean = vee.mean()/rs**2/n 
         vee_err = vee.std()/jnp.sqrt(batchsize)/rs**2/n 
 
-        vpp = vpp/rs**2/n
+        vpp_mean = vpp.mean()/rs**2/n
+        vpp_err = vpp.std()/jnp.sqrt(batchsize)/rs**2/n 
 
         print ("e, k, vep, vee, vpp, acc", 
                       e_mean, "+/-", e_err, 
                       k_mean, "+/-", k_err, 
                       vep_mean, "+/-", vep_err, 
                       vee_mean, "+/-", vee_err, 
-                      vpp, 
+                      vpp_mean, "+/-", vpp_err, 
                       acc)
 
 def logdet_matmul(xs: Sequence[jnp.ndarray],

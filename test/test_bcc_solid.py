@@ -101,7 +101,7 @@ def test_bcc_solid_hf_mcmc():
     grid_length = 0.05
     smearing = False
     sigma = 0.0 # smearing parameter 
-    perturbation = 0.1 # perturbation strength for atom position
+    perturbation = 0.0 # perturbation strength for atom position
     max_cycle = 50
     
     # bcc crystal
@@ -114,7 +114,7 @@ def test_bcc_solid_hf_mcmc():
     xp = xp - L * jnp.floor(xp/L)
 
     # uniform
-    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    #xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     print("\n============= begin test =============")
     print("n:", n)

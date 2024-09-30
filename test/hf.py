@@ -187,6 +187,7 @@ class Hydrogen:
 
 if __name__=='__main__':
     import jax
+    jax.config.update("jax_enable_x64", True)
 
     n = 16
     L = (4/3*np.pi*n)**(1/3)
@@ -197,10 +198,13 @@ if __name__=='__main__':
     xp = jax.random.uniform(key, (n, 3), minval=0., maxval=L)
     xp = np.array(xp)
     
+    print (L)
+    print (xp)
+    
     hf = Hydrogen(L*rs, xp*rs)
 
+    print ('E', hf.E_elec()/n)
     print ('K', hf.K()/n)
     print ('Vep', hf.Vep()/n)
     print ('Vee', hf.Vee()/n)
     print ('Vpp', hf.Vpp()/n)
-
