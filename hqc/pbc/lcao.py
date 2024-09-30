@@ -568,8 +568,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         w1, c1 = jnp.linalg.eigh(f1)
 
         mo_coeff = jnp.dot(v, c1)
-        dm_mo = density_matrix_mo_func(w1)
-        dm = density_matrix(mo_coeff, dm_mo)
+        dm = density_matrix(mo_coeff, w1)
 
         # ======================= debug =======================
         # jax.debug.print("w of ovlp:\n{x}", x=w)
