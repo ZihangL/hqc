@@ -155,6 +155,62 @@ def mcmc(logp_fn, x, key, mc_steps, mc_width):
     accept_rate = num_accepts / (mc_steps * batchsize) 
     return x, accept_rate
 
+@partial(jax.jit, static_argnums=0)
+def mcmc_ebes(logp_fn, x_init, key, mc_steps, mc_width,
+              logp_init=None):
+    """
+        Markov Chain Monte Carlo (MCMC) sampling algorithm
+        with electron-by-electron sampling (EBES).
+
+    INPUT:
+        logp_fn: callable that evaluate log-probability of a batch of configuration x.
+            The signature is logp_fn(x), where x has shape (..., n, dim).
+        x_init: initial value of x, with shape (..., n, dim).
+        key: initial PRNG key.
+        mc_steps: total number of Monte Carlo steps.
+        mc_width: size of the Monte Carlo proposal.
+
+        logp_init: initial logp (...,)
+
+    OUTPUT:
+        x: resulting batch samples, with the same shape as `x_init`.
+    """
+
+    def single_step(ii, state):
+        x, logp, key, accept_rate = state
+        key, key_proposal, key_accept = jax.random.split(key, 3)
+
+        batchshape = x.shape[:-2]
+        dim = x.shape[-1]
+        x_move = jax.random.normal(key_proposal, (*batchshape, dim))
+        x_proposal = x.at[..., ii, :].add(mc_width * x_move)
+        logp_proposal = logp_fn(x_proposal)  # batchshape
+
+        ratio = jnp.exp((logp_proposal - logp))
+        accept = jax.random.uniform(key_accept, ratio.shape) < ratio
+        accept_rate += accept.mean()
+
+        x_new = jnp.where(accept[..., None, None], x_proposal, x)
+        logp_new = jnp.where(accept, logp_proposal, logp)
+
+        return x_new, logp_new, key, accept_rate
+
+    def step(i, state):
+        x, logp, key, accept_rate = state
+
+        n = x.shape[-2]
+        x_new, logp_new, key, accept_rate = jax.lax.fori_loop(0, n, single_step,
+                                                                           (x, logp, key, accept_rate))
+        return x_new, logp_new, key, accept_rate 
+
+    if logp_init is None:
+        logp_init = logp_fn(x_init)
+
+    x, logp, key, accept_rate = jax.lax.fori_loop(0, mc_steps, step, (x_init, logp_init, key, 0.))
+    n = x.shape[-2]
+    accept_rate /= mc_steps * n
+    return x, accept_rate
+
 def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     """
         Sample electron coordinates from the ground state wavefunction.
@@ -162,15 +218,15 @@ def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     key, key_mcmc = jax.random.split(key)
     logpsi2_mcmc_novmap = lambda x: logpsi2(x, xp, mo_coeff)
     logpsi2_mcmc = jax.vmap(logpsi2_mcmc_novmap)
-    xe, ar_xe = mcmc(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
+    xe, acc = mcmc_ebes(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
     xe -= L * jnp.floor(xe/L)
-    return key, xe, ar_xe
+    return key, xe, acc
 
 def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width):
     key = jax.random.PRNGKey(42)
     xe = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
 
-    for _ in range(10):
+    for _ in range(5):
         key, xe, acc = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
         e, k, vpp, vep, vee = observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian)
 
@@ -300,9 +356,9 @@ def make_logpsi_grad_laplacian(logpsi):
 
 def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle):
     n = xp.shape[0]
-    batchsize = 256
+    batchsize = 1024
     mc_steps = 100
-    mc_width = 0.05
+    mc_width = 0.02
 
     L = (4/3*jnp.pi*n)**(1/3)
    
