@@ -33,7 +33,7 @@ def test_bcc_solid_hf():
     smearing = False
     sigma = 0.0 # smearing parameter 
     perturbation = 0.0 # perturbation strength for atom position
-    max_cycle = 100
+    max_cycle = 50
 
     xp = make_atoms([2, 2, 2]) # bcc crystal
     n = xp.shape[0]
@@ -52,6 +52,7 @@ def test_bcc_solid_hf():
     print("grid_length:", grid_length)
     print("hf:", not dft)
     print("smearing:", smearing)
+    print("perturbation:\n", perturbation)
     print("xp:\n", xp)
 
     for basis in basis_set:
@@ -66,15 +67,21 @@ def test_bcc_solid_hf():
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
+
         print ("coef diff", np.abs(mo_coeff - mo_coeff_pyscf).max())
         print ("band diff", np.abs(bands - bands_pyscf).max())
 
         print("bands:\n", bands)
         print("bands_pyscf:\n", bands_pyscf)
+
+        dm = mo_coeff[:, :n//2] @ (mo_coeff[:, :n//2].T)
+        dm_pyscf = mo_coeff_pyscf[:, :n//2] @ (mo_coeff_pyscf[:, :n//2].T)
+
+        print ("dm diff", np.abs(dm - dm_pyscf).max())
         
-        #np.set_printoptions(suppress=True)
-        #print("mo_coeff:\n", mo_coeff)
-        #print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
-        #print("diff:\n", mo_coeff- mo_coeff_pyscf)
+        np.set_printoptions(suppress=True)
+        print("dm:\n", dm)
+        print("dm_pyscf:\n", dm_pyscf)
+        print("diff:\n", dm - dm_pyscf)
 
 test_bcc_solid_hf()
