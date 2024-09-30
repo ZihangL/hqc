@@ -9,6 +9,8 @@ def make_pbc_gto(basis, L, rcut=24, lcao_xyz=False):
         Args:
             basis: basis name, eg:'gth-szv'.
             L: float, unit cell length. (Unit: Bohr)
+            rcut: float, cutoff radius. (Unit: Bohr)
+            lcao_xyz: bool, return the function for cartesian GTO orbitals (True is designed only for lcao function).
         Returns:
             eval_pbc_gto: PBC gto orbitals function.
     """
