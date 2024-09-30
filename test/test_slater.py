@@ -134,7 +134,7 @@ def mcmc(logp_fn, x, key, mc_steps, mc_width):
         x has shape (batch, n, dim).
     """
     def step(i, state):
-        x, logp, key, num_accepts, logp_arr, acc_arr = state
+        x, logp, key, num_accepts = state
         key, key_proposal, key_accept = jax.random.split(key, 3)
         
         x_proposal = x + mc_width * jax.random.normal(key_proposal, x.shape)
@@ -147,18 +147,13 @@ def mcmc(logp_fn, x, key, mc_steps, mc_width):
         logp_new = jnp.where(accept, logp_proposal, logp)
         num_accepts += accept.sum()
 
-        logp_arr = logp_arr.at[i].set(logp_new.mean())
-        acc_arr = acc_arr.at[i].set(accept.sum())
-
-        return x_new, logp_new, key, num_accepts, logp_arr, acc_arr
+        return x_new, logp_new, key, num_accepts
 
     logp_init = logp_fn(x)
-    logp_arr, acc_arr = jnp.zeros(mc_steps), jnp.zeros(mc_steps)
-    x, logp, key, num_accepts, logp_arr, acc_arr = jax.lax.fori_loop(0, mc_steps, step, (x, logp_init, key, 0., logp_arr, acc_arr))
+    x, logp, key, num_accepts = jax.lax.fori_loop(0, mc_steps, step, (x, logp_init, key, 0.))
     batchsize = x.shape[0]
     accept_rate = num_accepts / (mc_steps * batchsize) 
-
-    return x, accept_rate, logp_arr, acc_arr/batchsize
+    return x, accept_rate
 
 def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     """
@@ -167,17 +162,21 @@ def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     key, key_mcmc = jax.random.split(key)
     logpsi2_mcmc_novmap = lambda x: logpsi2(x, xp, mo_coeff)
     logpsi2_mcmc = jax.vmap(logpsi2_mcmc_novmap)
-    xe, ar_xe, logp_arr, acc_arr = mcmc(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
+    xe, ar_xe = mcmc(logpsi2_mcmc, xe, key_mcmc, mc_steps, mc_width)
     xe -= L * jnp.floor(xe/L)
-    return key, xe, ar_xe, logp_arr, acc_arr
+    return key, xe, ar_xe
 
 def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width):
     key = jax.random.PRNGKey(42)
     xe = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
-    step = np.arange(mc_steps)
-    key, xe, ar_xe, logp_arr, acc_arr = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
-    e_tot, k, vpp, vep, vee = observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian)
-    return e_tot.mean()/rs**2, k.mean()/rs**2, vpp.mean()/rs**2, vep.mean()/rs**2, vee.mean()/rs**2, step, logp_arr, acc_arr
+
+    for _ in range(10):
+        key, xe, acc = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
+        e, k, vpp, vep, vee = observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian)
+
+        e_mean = e.mean()/rs**2
+        e_err = e.std()/jnp.sqrt(batchsize)/rs**2
+        print ("e, acc", e_mean, "+/-", e_err, acc)
 
 def logdet_matmul(xs: Sequence[jnp.ndarray],
                   logw: Optional[jnp.ndarray] = None) -> jnp.ndarray:
@@ -303,7 +302,7 @@ def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
     n = xp.shape[0]
     batchsize = 256
     mc_steps = 100
-    mc_width = 0.07
+    mc_width = 0.05
 
     L = (4/3*jnp.pi*n)**(1/3)
    
@@ -319,7 +318,10 @@ def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
     print("------- HF and MC results -------")
 
     lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=False, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
-    mo_coeff, bands, E = lcao(xp)
+    mo_coeff, bands, e = lcao(xp)
+
+    print("e_hf (k+vep+vee in Ry):", e)
+
     hf_orbitals = make_slater(n, L, rs, basis=basis, groundstate=True)
 
     logpsi = make_logpsi_hf(hf_orbitals)
@@ -327,17 +329,4 @@ def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
     force_fn_e = jax.grad(logpsi2)
     logpsi_grad_laplacian = make_logpsi_grad_laplacian(logpsi)
 
-    start_time = time.time()
-    etot, k, vpp, vep, vee, step, logp_arr, acc_arr = hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width)
-    end_time = time.time()
-    time_mc = end_time - start_time
-
-    print("E_hf:", E)
-    print("etot:", etot)
-    print("k:", k)
-    print("vpp:", vpp)
-    print("vep:", vep)
-    print("vee:", vee)
-    print("mc time:", time_mc)
-    print("logp_arr:", logp_arr)
-    print("acc_arr:", acc_arr)
+    hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width)
