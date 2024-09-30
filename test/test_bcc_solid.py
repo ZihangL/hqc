@@ -35,14 +35,18 @@ def test_bcc_solid_hf():
     sigma = 0.0 # smearing parameter 
     perturbation = 0.1 # perturbation strength for atom position
     max_cycle = 50
-
-    xp = make_atoms([2, 2, 2]) # bcc crystal
+    
+    # bcc crystal
+    xp = make_atoms([2, 2, 2]) 
     n = xp.shape[0]
     L = (4/3*jnp.pi*n)**(1/3)
 
     key = jax.random.PRNGKey(42)
     xp += jax.random.normal(key, (n, dim)) * perturbation
     xp = xp - L * jnp.floor(xp/L)
+
+    # uniform
+    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     print("\n============= begin test =============")
     print("n:", n)
@@ -88,7 +92,6 @@ def test_bcc_solid_hf():
         #print("dm_pyscf:\n", dm_pyscf)
         #print("diff:\n", dm - dm_pyscf)
 
-    test_slater_hf(xp, rs)
 
 def test_bcc_solid_hf_mcmc():
     dim = 3
@@ -100,14 +103,18 @@ def test_bcc_solid_hf_mcmc():
     sigma = 0.0 # smearing parameter 
     perturbation = 0.1 # perturbation strength for atom position
     max_cycle = 50
-
-    xp = make_atoms([2, 2, 2]) # bcc crystal
+    
+    # bcc crystal
+    xp = make_atoms([2, 2, 2])
     n = xp.shape[0]
     L = (4/3*jnp.pi*n)**(1/3)
 
     key = jax.random.PRNGKey(42)
     xp += jax.random.normal(key, (n, dim)) * perturbation
     xp = xp - L * jnp.floor(xp/L)
+
+    # uniform
+    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     print("\n============= begin test =============")
     print("n:", n)
@@ -122,4 +129,5 @@ def test_bcc_solid_hf_mcmc():
 
     test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
 
+#test_bcc_solid_hf()
 test_bcc_solid_hf_mcmc()

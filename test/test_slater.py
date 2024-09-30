@@ -230,9 +230,27 @@ def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsiz
         key, xe, acc = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
         e, k, vpp, vep, vee = observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian)
 
-        e_mean = e.mean()/rs**2
-        e_err = e.std()/jnp.sqrt(batchsize)/rs**2
-        print ("e, acc", e_mean, "+/-", e_err, acc)
+        e_mean = e.mean()/rs**2/n 
+        e_err = e.std()/jnp.sqrt(batchsize)/rs**2/n
+
+        k_mean = k.mean()/rs**2/n 
+        k_err = k.std()/jnp.sqrt(batchsize)/rs**2/n 
+
+        vep_mean = vep.mean()/rs**2/n 
+        vep_err = vep.std()/jnp.sqrt(batchsize)/rs**2/n 
+
+        vee_mean = vee.mean()/rs**2/n 
+        vee_err = vee.std()/jnp.sqrt(batchsize)/rs**2/n 
+
+        vpp = vpp/rs**2/n
+
+        print ("e, k, vep, vee, vpp, acc", 
+                      e_mean, "+/-", e_err, 
+                      k_mean, "+/-", k_err, 
+                      vep_mean, "+/-", vep_err, 
+                      vee_mean, "+/-", vee_err, 
+                      vpp, 
+                      acc)
 
 def logdet_matmul(xs: Sequence[jnp.ndarray],
                   logw: Optional[jnp.ndarray] = None) -> jnp.ndarray:
