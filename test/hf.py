@@ -194,10 +194,14 @@ if __name__=='__main__':
     rs = 1.31
 
     # uniform
-    key = jax.random.PRNGKey(42)
-    xp = jax.random.uniform(key, (n, 3), minval=0., maxval=L)
-    xp = np.array(xp)
-    
+    #key = jax.random.PRNGKey(42)
+    #xp = jax.random.uniform(key, (n, 3), minval=0., maxval=L)
+    #xp = np.array(xp)
+
+    # bcc crystal
+    from test_bcc_solid import make_atoms
+    xp = make_atoms([2, 2, 2])
+
     print (L)
     print (xp)
     

@@ -33,7 +33,7 @@ def test_bcc_solid_hf():
     xc = "lda,vwn"
     smearing = False
     sigma = 0.0 # smearing parameter 
-    perturbation = 0.1 # perturbation strength for atom position
+    perturbation = 0.0 # perturbation strength for atom position
     max_cycle = 50
     
     # bcc crystal
@@ -46,7 +46,7 @@ def test_bcc_solid_hf():
     xp = xp - L * jnp.floor(xp/L)
 
     # uniform
-    xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+    # xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
 
     print("\n============= begin test =============")
     print("n:", n)
@@ -129,5 +129,6 @@ def test_bcc_solid_hf_mcmc():
 
     test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
 
-#test_bcc_solid_hf()
-test_bcc_solid_hf_mcmc()
+if __name__=='__main__':
+    #test_bcc_solid_hf()
+    test_bcc_solid_hf_mcmc()
