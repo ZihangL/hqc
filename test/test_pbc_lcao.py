@@ -34,6 +34,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
         cell.atom.append(['H', tuple(xp[ie])])
     cell.spin = 0
     cell.basis = {'H':gto.parse(load_as_str('H', basis), optimize=True)}
+    cell.symmetry = False
     cell.build()
 
     kmf = scf.hf.RHF(cell)
@@ -48,6 +49,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
     kmf.kernel()
     mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
     bands = kmf.get_bands(kpts_band=cell.make_kpts([1,1,1]))[0][0]
+    E = kmf.e_tot - kmf.energy_nuc()
 
     # print("pyscf overlap:\n", kmf.get_ovlp())
     # print("pyscf kinetic:\n", kmf.get_ovlp)
@@ -56,7 +58,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
     print("pyscf energy per atom:", kmf.e_tot/n)
     print("pyscf converged", kmf.converged)
 
-    return mo_coeff, bands * Ry 
+    return mo_coeff, bands * Ry, E * Ry
 
 
 def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, smearing_method='fermi'):
@@ -98,13 +100,13 @@ def pyscf_dft(n, L, rs, sigma, xp, basis='sto-3g', xc='lda,', smearing=False, sm
     kmf.kernel()
     mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
     bands = kmf.get_bands(kpts_band=cell.make_kpts([1,1,1]))[0][0]
+    E = kmf.e_tot - kmf.energy_nuc()
 
     # print("pyscf e_elec (Ha):", kmf.e_tot-kmf.energy_nuc())
     # print("pyscf e_elec (Ha):", kmf.energy_elec())
     # print("pyscf e_nuc (Ha):", kmf.energy_nuc())
     
-    return mo_coeff, bands * Ry
-
+    return mo_coeff, bands * Ry, E * Ry
 
 def test_hf():
     n, dim = 4, 3
@@ -134,23 +136,30 @@ def test_hf():
         print("\n==========", basis, "==========")
 
         # PBC energy test
-        mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, 0, xp, basis, smearing=smearing)
+        mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, 0, xp, basis, smearing=smearing)
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing)
-        mo_coeff, bands = lcao(xp)
+        mo_coeff, bands, E = lcao(xp)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
         print("mo_coeff:\n", mo_coeff)
         print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
+        print("same mo_coeff")
 
         print("bands:\n", bands)
         print("bands_pyscf:\n", bands_pyscf)
         assert np.allclose(bands, bands_pyscf, atol=1e-3)
+        print("same bands")
+
+        print("E:", E)
+        print("E_pyscf:", E_pyscf)
+        assert np.allclose(E, E_pyscf, atol=1e-3)
+        print("same E")
 
         # vmap test
         xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
-        jax.vmap(lcao, 0, (0, 0))(xp2)
+        jax.vmap(lcao, 0, (0, 0, 0))(xp2)
         
 
 def test_dft():
@@ -182,20 +191,27 @@ def test_dft():
         print("\n==========", basis, "==========")
 
         # PBC energy test
-        mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, 0, xp, basis, xc=xc, smearing=smearing)
+        mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, 0, xp, basis, xc=xc, smearing=smearing)
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, xc=xc, smearing=smearing)
-        mo_coeff, bands = lcao(xp)
+        mo_coeff, bands, E = lcao(xp)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
         print("mo_coeff:\n", mo_coeff)
         print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
+        print("same mo_coeff")
         
         print("bands:\n", bands)
         print("bands_pyscf:\n", bands_pyscf)
         assert np.allclose(bands, bands_pyscf, atol=1e-3)
+        print("same bands")
+
+        print("E:", E)
+        print("E_pyscf:", E_pyscf)
+        assert np.allclose(E, E_pyscf, atol=1e-3)
+        print("same E")
 
         # vmap test
         xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
-        jax.vmap(lcao, 0, (0, 0))(xp2)
+        jax.vmap(lcao, 0, (0, 0, 0))(xp2)

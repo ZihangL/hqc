@@ -97,15 +97,16 @@ def main(cfg : DictConfig) -> None:
 
         # run twice to compare the time
         time1 = time.time()
-        mo_coeff, bands = lcao_novmap(xp[0])
+        mo_coeff, bands, E = lcao_novmap(xp[0])
         time2 = time.time()
 
         time3 = time.time()
-        mo_coeff, bands = lcao_novmap(xp[cfg.batchid])
+        mo_coeff, bands, E = lcao_novmap(xp[cfg.batchid])
         time4 = time.time()
 
         print("\n========== solver ==========")
         print("solver bands:\n", bands)
+        print("solver E:", E)
         print("compile time:", time2-time1-time4+time3)
         print("run time:", time4-time3)
         print("finished!")
@@ -114,29 +115,31 @@ def main(cfg : DictConfig) -> None:
             print("\n========== pyscf ==========")
             if dft:
                 time1 = time.time()
-                mo_coeff_dft, energy_dft = pyscf_dft(n, L, rs, smearing_sigma, xp[cfg.batchid], basis, xc=cfg.xc, 
-                                                    smearing=cfg.smearing, smearing_method=cfg.smearing_method)
+                mo_coeff_dft, energy_dft, E_dft = pyscf_dft(n, L, rs, smearing_sigma, xp[cfg.batchid], basis, xc=cfg.xc, 
+                                                            smearing=cfg.smearing, smearing_method=cfg.smearing_method)
                 time2 = time.time()
                 print("pyscf time:", time2-time1)
                 print("pyscf bands:\n", energy_dft)
+                print("pyscf E:", E_dft)
             else:
                 time1 = time.time()
-                mo_coeff_hf, energy_hf = pyscf_hf(n, L, rs, smearing_sigma, xp[cfg.batchid], basis, 
-                                                smearing=cfg.smearing, smearing_method=cfg.smearing_method)
+                mo_coeff_hf, energy_hf, E_hf = pyscf_hf(n, L, rs, smearing_sigma, xp[cfg.batchid], basis, 
+                                                        smearing=cfg.smearing, smearing_method=cfg.smearing_method)
                 time2 = time.time()
                 print("pyscf time:", time2-time1)
                 print("pyscf bands:\n", energy_hf)
+                print("pyscf E:", E_hf)
             print("finished!")
 
     elif cfg.mode == "search_checkpoint" or cfg.mode == "search_random":
 
         # run twice to compare the time
         time1 = time.time()
-        mo_coeff, bands = lcao_novmap(xp[0])
+        mo_coeff, bands, E = lcao_novmap(xp[0])
         time2 = time.time()
 
         time3 = time.time()
-        mo_coeff, bands = lcao_novmap(xp[cfg.batchid])
+        mo_coeff, bands, E = lcao_novmap(xp[cfg.batchid])
         time4 = time.time()
 
         print("compile time:", time2-time1-time4+time3)
@@ -144,27 +147,28 @@ def main(cfg : DictConfig) -> None:
         print("begin searching...")
         for i in range(1, len(xp)):
             time1 = time.time()
-            mo_coeff, bands = lcao_novmap(xp[i])
+            mo_coeff, bands, E = lcao_novmap(xp[i])
             time2 = time.time()
             print("batchid:", i, "time:", time2-time1)
 
     elif cfg.mode == "memory":
 
         print("vmap lcao...")
-        lcao = jax.vmap(lcao_novmap, 0, (0, 0))
+        lcao = jax.vmap(lcao_novmap, 0, (0, 0, 0))
 
         # run twice to compare the time
         time1 = time.time()
-        mo_coeff, bands = lcao(xp)
+        mo_coeff, bands, E = lcao(xp)
         time2 = time.time()
 
         # run twice to compare the time
         time3 = time.time()
-        mo_coeff, bands = lcao(xp)
+        mo_coeff, bands, E = lcao(xp)
         time4 = time.time()
 
         print("\n========== solver ==========")
         # print("solver bands[0]:\n", bands[0])
+        # print("solver E:", E)
         print("compile time:", time2-time1-time4+time3)
         print("run time:", time4-time3)
         print("finished!")
@@ -172,24 +176,25 @@ def main(cfg : DictConfig) -> None:
     elif cfg.mode == "speed":
 
         print("vmap lcao...")
-        lcao = jax.vmap(lcao_novmap, 0, (0, 0))
+        lcao = jax.vmap(lcao_novmap, 0, (0, 0, 0))
 
         # run twice to compare the time
         time1 = time.time()
-        mo_coeff, bands = lcao(xp[0])
+        mo_coeff, bands, E = lcao(xp[0])
         time2 = time.time()
 
         time1 = time.time()
         print("total loop:" , xp.shape[0])
         for i in range(xp.shape[0]):
             time3 = time.time()
-            mo_coeff, bands = lcao(xp[i])
+            mo_coeff, bands, E = lcao(xp[i])
             time4 = time.time()
             print("loop:", i, "time:", time4-time3)
         time2 = time.time()
 
         print("\n========== solver ==========")
         # print("solver bands[0]:\n", bands[0])
+        # print("solver E:", E)
         print("total time:", time2-time1)
         print("finished!")
         

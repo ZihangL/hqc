@@ -545,6 +545,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -627,7 +628,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("end scf loop {x}", x=loop)
         # =====================================================
 
-        return mo_coeff, w1 * Ry
+        return mo_coeff, w1 * Ry, E * Ry
     
     def hf_diis(xp):
         """
@@ -638,6 +639,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -660,6 +662,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         # intialize molecular orbital
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
+        # add random noise to f1 for a different initialization
+        #key = jax.random.PRNGKey(42)
+        #f1 = f1 + jax.random.normal(key, f1.shape) * 0.001
+        #f1 = (f1+ f1.T)/2.0
         w1, c1 = jnp.linalg.eigh(f1)
 
         # Hcore initial guess (1e initial guess)
@@ -831,7 +837,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
 
-        return mo_coeff, w1 * Ry
+        return mo_coeff, w1 * Ry, E * Ry
 
     def dft_fp(xp):
         """
@@ -842,6 +848,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -926,7 +933,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("end scf loop {x}", x=loop)
         # =====================================================
 
-        return mo_coeff, w1 * Ry
+        return mo_coeff, w1 * Ry, E * Ry
 
     def dft_diis(xp):
         """
@@ -937,6 +944,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -1131,7 +1139,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
 
-        return mo_coeff, w1 * Ry
+        return mo_coeff, w1 * Ry, E * Ry
 
     if dft:
         if diis:

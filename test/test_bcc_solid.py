@@ -52,18 +52,21 @@ def test_bcc_solid_hf():
     print("grid_length:", grid_length)
     print("hf:", not dft)
     print("smearing:", smearing)
-    print("perturbation:\n", perturbation)
+    print("perturbation:", perturbation)
     print("xp:\n", xp)
 
     for basis in basis_set:
         print("\n==========", basis, "==========")
         if dft: 
-            mo_coeff_pyscf, bands_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
         else:
-            mo_coeff_pyscf, bands_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
 
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
-        mo_coeff, bands = lcao(xp)
+        mo_coeff, bands, E = lcao(xp)
+
+        print ("E", E)
+        print ("E_pyscf", E_pyscf)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
@@ -79,9 +82,9 @@ def test_bcc_solid_hf():
 
         print ("dm diff", np.abs(dm - dm_pyscf).max())
         
-        np.set_printoptions(suppress=True)
-        print("dm:\n", dm)
-        print("dm_pyscf:\n", dm_pyscf)
-        print("diff:\n", dm - dm_pyscf)
+        #np.set_printoptions(suppress=True)
+        #print("dm:\n", dm)
+        #print("dm_pyscf:\n", dm_pyscf)
+        #print("diff:\n", dm - dm_pyscf)
 
 test_bcc_solid_hf()
