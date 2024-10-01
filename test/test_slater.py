@@ -316,8 +316,13 @@ def make_logpsi_hf(hf_orbitals):
             a single complex number ln Psi(x), given in the form of a 2-tuple (real, imag).
         """
         D_up, D_dn =  hf_orbitals(s, x, mo_coeff)
-        phase, logabsdet = logdet_matmul([D_up[None, :, :], D_dn[None, :, :]])
-        log_phi = logabsdet + jnp.log(phase)
+        #phase, logabsdet = logdet_matmul([D_up[None, :, :], D_dn[None, :, :]])
+        #log_phi = logabsdet + jnp.log(phase)
+        sign_alpha, logabsdet_alpha = jnp.linalg.slogdet(D_up)
+        sign_beta, logabsdet_beta = jnp.linalg.slogdet(D_dn)
+        sign = sign_alpha * sign_beta
+        logabsdet = logabsdet_alpha + logabsdet_beta
+        log_phi = jnp.log(sign + 0.j) + logabsdet
         return jnp.stack([log_phi.real, log_phi.imag])
 
     return logpsi
@@ -334,7 +339,7 @@ def make_logpsi2(logpsi):
         Output:
             logp: float
         """
-        return 2 * logpsi(x, s, mo_coeff)[0]
+        return 2* logpsi(x, s, mo_coeff)[0]
     
     return logpsi2
 
@@ -402,7 +407,6 @@ def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
 
     logpsi = make_logpsi_hf(hf_orbitals)
     logpsi2 = make_logpsi2(logpsi)
-    force_fn_e = jax.grad(logpsi2)
     logpsi_grad_laplacian = make_logpsi_grad_laplacian(logpsi)
 
     hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, mc_steps, mc_width)

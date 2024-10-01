@@ -33,7 +33,7 @@ def test_bcc_solid_hf():
     xc = "lda,vwn"
     smearing = False
     sigma = 0.0 # smearing parameter 
-    perturbation = 0.1 # perturbation strength for atom position
+    perturbation = 0.0 # perturbation strength for atom position
     max_cycle = 50
     
     # bcc crystal
@@ -96,7 +96,7 @@ def test_bcc_solid_hf():
 def test_bcc_solid_hf_mcmc():
     dim = 3
     rs = 1.31
-    basis = 'gth-szv'
+    basis = 'gth-dzv'
     rcut = 24
     grid_length = 0.12
     smearing = False
@@ -151,5 +151,5 @@ def test_bcc_solid_hf_mcmc():
     test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
 
 if __name__=='__main__':
-    test_bcc_solid_hf()
-    #test_bcc_solid_hf_mcmc()
+    #test_bcc_solid_hf()
+    test_bcc_solid_hf_mcmc()

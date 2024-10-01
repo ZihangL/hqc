@@ -34,7 +34,7 @@ def make_slater(n, L, rs, basis='sto-3g', rcut=24, groundstate=True):
         assert xp.shape[0] == n
         ao_val = jax.lax.map(lambda xe: gto(xp*rs, xe*rs), xe) # (n, n_ao)
         ao_val_up = ao_val[:n//2] # (n_up, n_ao)
-        ao_val_dn = ao_val[n//2:] # (n_up, n_ao)
+        ao_val_dn = ao_val[n//2:] # (n_dn, n_ao)
         slater_up = jnp.einsum('ij,jk->ik', ao_val_up, mo_coeff[:, state_idx[:n//2]]) # (n_up, n_up)
         slater_dn = jnp.einsum('ij,jk->ik', ao_val_dn, mo_coeff[:, state_idx[n//2:]]) # (n_dn, n_dn)
         return slater_up, slater_dn

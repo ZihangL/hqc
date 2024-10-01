@@ -22,7 +22,7 @@ class Hydrogen:
         for ie in range(self.n_H):
             self.cell.atom.append(['H', tuple(position_nuc[ie])])
         self.cell.spin = position_nuc.shape[0] % 2
-        self.cell.basis = 'gth-szv'
+        self.cell.basis = 'gth-dzv'
         self.cell.a = np.eye(3) * length
         self.cell.precision = 1e-5
         self.cell.build()
@@ -192,7 +192,7 @@ if __name__=='__main__':
 
     n = 16
     L = (4/3*np.pi*n)**(1/3)
-    rs = 1.31
+    rs = 1.0
 
     # uniform
     #key = jax.random.PRNGKey(42)
