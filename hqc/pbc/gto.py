@@ -414,7 +414,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
                 n_gto = n_gto_s + n_gto_p + n_gto_d + ...
                 complex float.
         """        
-        return jax.vmap(eval_pbc_gto_sph_kpt, (0, None), 0)(xe[None, :]-xp, kpt).reshape(-1)
+        return jax.vmap(eval_pbc_gto_sph_kpt, (0, None), 0)(xe[None, :]-xp, kpt).reshape(-1) # (n_ao,), complex
 
     if gamma:
         if lcao_xyz:
@@ -423,7 +423,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
             return eval_pbc_ao
     else: 
         if lcao_xyz:
-            return jax.vmap(eval_pbc_gaussian_power_x_kpt), power2cart, alpha_coeff_gto_cart2sph
+            return jax.vmap(eval_pbc_gaussian_power_x_kpt, (0, None), 0), power2cart, alpha_coeff_gto_cart2sph
         else:
             return eval_pbc_ao_kpt
         
