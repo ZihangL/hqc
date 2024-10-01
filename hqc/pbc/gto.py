@@ -3,13 +3,15 @@ import numpy as np
 import jax.numpy as jnp
 from hqc.basis.parse import parse_quant_num, parse_gto, normalize_gto_coeff
 
-def make_pbc_gto(basis, L, rcut=24, lcao_xyz=False):
+def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
     """
         Make PBC GTO orbitals function by using cartesian representation.
         Args:
             basis: basis name, eg:'gth-szv'.
             L: float, unit cell length. (Unit: Bohr)
             rcut: float, cutoff radius. (Unit: Bohr)
+            gamma: bool, if True, return eval_pbc_ao(xp, xe) for gamma point only, 
+                         else, return eval_pbc_ao_kpt(xp, xe, kpt) for a single k-point.
             lcao_xyz: bool, return the function for cartesian GTO orbitals (True is designed only for lcao function).
         Returns:
             eval_pbc_gto: PBC gto orbitals function.
@@ -324,9 +326,9 @@ def make_pbc_gto(basis, L, rcut=24, lcao_xyz=False):
             one dimensional electron coordinate x.
         Args:
             x: float, position of one dimensional electron. (Unit: Bohr)
-            kpt_x: float, k point in one axis. (Unit: 1/Bohr)
         Returns:
             pbc_gaussian_power_x: PBC gaussian power orbitals at x, shape:(n_all_alpha, n_l)
+                real float.
         """        
         power_x_T =  jax.vmap(_power_x, 0, 1)(x-lattice_1d) # (n_l, n_lattice_1d)
         gaussian_x_T = jax.vmap(_eval_gaussian, (None, 0), 1)(all_alpha, x-lattice_1d) # (n_all_alpha, n_lattice_1d)
@@ -338,10 +340,10 @@ def make_pbc_gto(basis, L, rcut=24, lcao_xyz=False):
             Evaluates PBC GTO orbitals centered at (0, 0, 0) for one electron coordinate.
         Args:
             r: array of shape (3,), position of one electron. (Unit: Bohr)
-            kpt: array of shape (3,), k point. (Unit: 1/Bohr)
         Returns:
             pbc_gto: PBC gto orbitals at xe, shape:(n_gto_sph,)
                 n_gto_sph = n_gto_sph_s + n_gto_sph_p + n_gto_sph_d + ...
+                real float.
         """
         pbc_gaussian_power_xyz = jax.vmap(eval_pbc_gaussian_power_x)(r) # (3, n_all_alpha, n_l)
         pbc_gaussian_cart_xyz = jnp.einsum('dal,dlc->dac', pbc_gaussian_power_xyz, power2cart) # (3, n_all_alpha, n_cart)
@@ -355,15 +357,73 @@ def make_pbc_gto(basis, L, rcut=24, lcao_xyz=False):
         Args:
             xp: array of shape (n, 3), position of protons in unit cell. (Unit: Bohr)
             xe: array of shape (3,), position one electron in unit cell. (Unit: Bohr)
-            kpt: array of shape (3,), k point. (Unit: 1/Bohr)
         Returns:
             pbc_gto: PBC gto orbitals at xe, shape:(n_ao,)
                 n_ao = n_p * (n_gto)
                 n_gto = n_gto_s + n_gto_p + n_gto_d + ...
+                real float.
         """        
         return jax.vmap(eval_pbc_gto_sph)(xe[None, :]-xp).reshape(-1)
 
-    if lcao_xyz:
-        return jax.vmap(eval_pbc_gaussian_power_x), power2cart, alpha_coeff_gto_cart2sph
-    else:
-        return eval_pbc_ao
+    def eval_pbc_gaussian_power_x_kpt(x, kpt_x):
+        """
+            Evaluates PBC cartesian GTO orbitals centered at 0 for 
+            one dimensional electron coordinate x.
+        Args:
+            x: float, position of one dimensional electron. (Unit: Bohr)
+            kpt_x: float, k point in one axis. (Unit: 1/Bohr)
+                1BZ: (-pi/L, pi/L)
+        Returns:
+            pbc_gaussian_power_x_kpt: PBC gaussian power orbitals at x and kpt_x, shape:(n_all_alpha, n_l)
+                complex float.
+        """        
+        power_x_T =  jax.vmap(_power_x, 0, 1)(x-lattice_1d) # (n_l, n_lattice_1d)
+        gaussian_x_T = jax.vmap(_eval_gaussian, (None, 0), 1)(all_alpha, x-lattice_1d) # (n_all_alpha, n_lattice_1d)
+        pbc_gaussian_power_x_kpt = jnp.einsum('lt,at,t->al', power_x_T, gaussian_x_T, jnp.exp(1j*kpt_x*lattice_1d)) # (n_all_alpha, n_l), complex
+        return pbc_gaussian_power_x_kpt
+
+    def eval_pbc_gto_sph_kpt(r, kpt):
+        """
+            Evaluates PBC GTO orbitals centered at (0, 0, 0) for one electron coordinate.
+        Args:
+            r: array of shape (3,), position of one electron. (Unit: Bohr)
+            kpt: array of shape (3,), k point. (Unit: 1/Bohr)
+                1BZ: (-pi/L, pi/L)
+        Returns:
+            pbc_gto: PBC gto orbitals at xe and kpt, shape:(n_gto_sph,)
+                n_gto_sph = n_gto_sph_s + n_gto_sph_p + n_gto_sph_d + ...
+                complex float.
+        """
+        pbc_gaussian_power_xyz_kpt = jax.vmap(eval_pbc_gaussian_power_x_kpt, (0, 0), 0)(r, kpt) # (3, n_all_alpha, n_l), complex
+        pbc_gaussian_cart_xyz_kpt = jnp.einsum('dal,dlc->dac', pbc_gaussian_power_xyz_kpt, power2cart) # (3, n_all_alpha, n_cart), complex
+        pbc_gaussian_cart_kpt = jnp.prod(pbc_gaussian_cart_xyz_kpt, axis=0) # (n_all_alpha, n_cart), complex
+        pbc_gto_sph_kpt = jnp.einsum('ac,acs->s', pbc_gaussian_cart_kpt, alpha_coeff_gto_cart2sph) # (n_gto_sph,), complex
+        return pbc_gto_sph_kpt
+
+    def eval_pbc_ao_kpt(xp, xe, kpt):
+        """
+            Evaluates PBC GTO orbitals for several protons at one electron coordinate.
+        Args:
+            xp: array of shape (n, 3), position of protons in unit cell. (Unit: Bohr)
+            xe: array of shape (3,), position one electron in unit cell. (Unit: Bohr)
+            kpt: array of shape (3,), k point. (Unit: 1/Bohr)
+                1BZ: (-pi/L, pi/L)
+        Returns:
+            pbc_gto_kpt: PBC gto orbitals at xe, shape:(n_ao,)
+                n_ao = n_p * (n_gto)
+                n_gto = n_gto_s + n_gto_p + n_gto_d + ...
+                complex float.
+        """        
+        return jax.vmap(eval_pbc_gto_sph_kpt, (0, None), 0)(xe[None, :]-xp, kpt).reshape(-1)
+
+    if gamma:
+        if lcao_xyz:
+            return jax.vmap(eval_pbc_gaussian_power_x), power2cart, alpha_coeff_gto_cart2sph
+        else:
+            return eval_pbc_ao
+    else: 
+        if lcao_xyz:
+            return jax.vmap(eval_pbc_gaussian_power_x_kpt), power2cart, alpha_coeff_gto_cart2sph
+        else:
+            return eval_pbc_ao_kpt
+        
