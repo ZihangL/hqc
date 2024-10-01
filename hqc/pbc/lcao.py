@@ -240,6 +240,25 @@ def make_lcao(n, L, rs, basis='gth-szv',
             overlap = jnp.sum(_ovlp, axis=2)
             kinetic = jnp.einsum('ijl,ij,ijl->ij', _ovlp, alpha2, 3-2*jnp.einsum('ij,l->ijl', alpha2, Rmnc))
             return overlap, kinetic
+        
+        def _eval_intermediate_integral_kpt(xp1, xp2, kpt):
+            """
+                Evaluate intermediate overlap and kinetic integrals at k point.
+                The original function is used for s orbital integral, use jax.grad for p orbitals.
+                Args:
+                    xp1: array of shape (3,), position of protons.
+                    xp2: array of shape (3,), position of protons.
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                Returns:
+                    overlap: array of shape (n_all_alpha, n_all_alpha), overlap integrals.
+                    kinetic: array of shape (n_all_alpha, n_all_alpha), kinetic energy integrals.
+            """
+            Rmnc = jnp.sum(jnp.square(xp1[None, :] - xp2[None, :] + lattice), axis=1)
+            _ovlp = jnp.pi**1.5*jnp.einsum('ij,ijl,l->ijl', 1/jnp.power(sum_alpha, 1.5), 
+                    jnp.exp(-jnp.einsum('ij,l->ijl', alpha2, Rmnc)), jnp.exp(-1j*lattice@kpt))
+            overlap = jnp.sum(_ovlp, axis=2)
+            kinetic = jnp.einsum('ijl,ij,ijl->ij', _ovlp, alpha2, 3-2*jnp.einsum('ij,l->ijl', alpha2, Rmnc))
+            return overlap, kinetic
     
         def eval_overlap_kinetic_s(xp1, xp2):
             """
@@ -252,6 +271,22 @@ def make_lcao(n, L, rs, basis='gth-szv',
                     T: array of shape (n_ao_one_atom, n_ao_one_atom), kinetic matrix.
             """
             overlap_s, kinetic_s = _eval_intermediate_integral(xp1, xp2)
+            ovlp_s = jnp.einsum('ip,jq,ij->pq', coeffs, coeffs, overlap_s)
+            T_s = jnp.einsum('ip,jq,ij->pq', coeffs, coeffs, kinetic_s)
+            return ovlp_s, T_s
+        
+        def eval_overlap_kinetic_s_kpt(xp1, xp2, kpt):
+            """
+                Evaluate overlap and kinetic matrix for s orbitals.
+                Args:
+                    xp1: array of shape (3,), position of protons.
+                    xp2: array of shape (3,), position of protons.
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                Returns:
+                    ovlp: array of shape (n_ao_one_atom, n_ao_one_atom), overlap matrix.
+                    T: array of shape (n_ao_one_atom, n_ao_one_atom), kinetic matrix.
+            """
+            overlap_s, kinetic_s = _eval_intermediate_integral_kpt(xp1, xp2, kpt)
             ovlp_s = jnp.einsum('ip,jq,ij->pq', coeffs, coeffs, overlap_s)
             T_s = jnp.einsum('ip,jq,ij->pq', coeffs, coeffs, kinetic_s)
             return ovlp_s, T_s
@@ -292,17 +327,52 @@ def make_lcao(n, L, rs, basis='gth-szv',
             T = _matrix_s_p(kinetic_s, kinetic_sp, kinetic_ps, kinetic_p)
             return ovlp, T
         
-        if l_max == 0:
-            return eval_overlap_kinetic_s
-        elif l_max == 1:
-            return eval_overlap_kinetic_sp
+        def eval_overlap_kinetic_sp_kpt(xp1, xp2, kpt):
+            """
+                Evaluate overlap and kinetic matrix for s and p orbitals.
+                Args:
+                    xp1: array of shape (3,), position of protons.
+                    xp2: array of shape (3,), position of protons.
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                Returns:
+                    ovlp: array of shape (n_ao, n_ao), overlap matrix.
+                    T: array of shape (n_ao, n_ao), kinetic matrix.
+            """
+            overlap_s, kinetic_s = _eval_intermediate_integral_kpt(xp1, xp2, kpt)
+            overlap_sp, kinetic_sp = jacfwd(_eval_intermediate_integral, argnums=1)(xp1, xp2)
+            overlap_ps, kinetic_ps = jacfwd(_eval_intermediate_integral, argnums=0)(xp1, xp2)
+            overlap_p, kinetic_p = jacfwd(jacfwd(_eval_intermediate_integral), argnums=1)(xp1, xp2)
+
+            ovlp = _matrix_s_p(overlap_s, overlap_sp, overlap_ps, overlap_p)
+            T = _matrix_s_p(kinetic_s, kinetic_sp, kinetic_ps, kinetic_p)
+            return ovlp, T
+        
+        if gamma:
+            if l_max == 0:
+                return eval_overlap_kinetic_s
+            elif l_max == 1:
+                return eval_overlap_kinetic_sp
+            else:
+                raise ValueError("l_max > 1 is not supported yet.")
         else:
-            raise ValueError("l_max > 1 is not supported yet.")
-    
-    eval_overlap_kinetic_noreshape = vmap(vmap(make_overlap_kinetic(), (0, None), (0, 0)), (None, 0), (2, 2))
+            if l_max == 0:
+                return eval_overlap_kinetic_s_kpt
+            elif l_max == 1:
+                return eval_overlap_kinetic_sp_kpt
+            else:
+                raise ValueError("l_max > 1 is not supported yet.")
+
+    if gamma:
+        eval_overlap_kinetic_noreshape = vmap(vmap(make_overlap_kinetic(), (0, None), (0, 0)), (None, 0), (2, 2))
+    else:
+        eval_overlap_kinetic_kpt_noreshape = vmap(vmap(make_overlap_kinetic(), (0, None, None), (0, 0)), (None, 0, None), (2, 2))
 
     def eval_overlap_kinetic(xp1, xp2):
         ovlp, T = eval_overlap_kinetic_noreshape(xp1, xp2)
+        return ovlp.reshape(n_ao, n_ao), T.reshape(n_ao, n_ao)
+    
+    def eval_overlap_kinetic_kpt(xp1, xp2, kpt):
+        ovlp, T = eval_overlap_kinetic_kpt_noreshape(xp1, xp2, kpt)
         return ovlp.reshape(n_ao, n_ao), T.reshape(n_ao, n_ao)
     
     def eval_vep_eris(xp, pbc_gaussian_power_xyz):
@@ -567,7 +637,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         xp *= rs
 
         # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp)
+        ovlp, T = eval_overlap_kinetic(xp, xp, kpt)
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
