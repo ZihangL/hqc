@@ -202,7 +202,15 @@ if __name__=='__main__':
     # bcc crystal
     from test_bcc_solid import make_atoms
     xp = make_atoms([2, 2, 2])
-    
+
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    perturbation = 0.1
+    xp += jax.random.normal(key, (n, 3)) * perturbation
+    xp = xp - L * jnp.floor(xp/L)
+
+    '''
     rs = 2.0
     n = 14
     s = jnp.array( [[0.222171,  0.53566,  0.579785],
@@ -222,14 +230,15 @@ if __name__=='__main__':
 
     L = (4/3*jnp.pi*n)**(1/3)
     xp = s * L
+    '''
 
     print (L)
     print (xp)
     
     hf = Hydrogen(L*rs, xp*rs)
-
-    print ('E', hf.E_elec()/n)
-    print ('K', hf.K()/n)
-    print ('Vep', hf.Vep()/n)
-    print ('Vee', hf.Vee()/n)
-    print ('Vpp', hf.Vpp()/n)
+    print ('etot', (hf.E_elec()+hf.Vpp())/n)
+    print ('e', hf.E_elec()/n)
+    print ('k', hf.K()/n)
+    print ('vep', hf.Vep()/n)
+    print ('vee', hf.Vee()/n)
+    print ('vpp', hf.Vpp()/n)

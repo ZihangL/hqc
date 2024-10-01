@@ -222,7 +222,7 @@ def sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L):
     xe -= L * jnp.floor(xe/L)
     return key, xe, acc
 
-def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width):
+def hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, mc_steps, mc_width):
     key = jax.random.PRNGKey(42)
     xe = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
 
@@ -398,11 +398,11 @@ def test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
 
     print("e_hf per atom (k+vep+vee in Ry):", e/n)
 
-    hf_orbitals = make_slater(n, L, rs, basis=basis, groundstate=True)
+    hf_orbitals = make_slater(n, L, rs, basis=basis, rcut=rcut, groundstate=True)
 
     logpsi = make_logpsi_hf(hf_orbitals)
     logpsi2 = make_logpsi2(logpsi)
     force_fn_e = jax.grad(logpsi2)
     logpsi_grad_laplacian = make_logpsi_grad_laplacian(logpsi)
 
-    hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, basis, grid_length, mc_steps, mc_width)
+    hf_wfn_mcmc(n, rs, xp, L, logpsi2, logpsi_grad_laplacian, mo_coeff, batchsize, mc_steps, mc_width)

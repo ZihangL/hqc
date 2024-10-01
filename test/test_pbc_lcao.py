@@ -54,7 +54,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis='sto-3g', hf0=False, smearing=False, sme
     # print("pyscf overlap:\n", kmf.get_ovlp())
     # print("pyscf kinetic:\n", kmf.get_ovlp)
     # print("pyscf potential:\n", kmf.get_vnuc())
-    # print("pyscf Hcore:\n", kmf.get_hcore())
+    print("pyscf Hcore:\n", kmf.get_hcore())
     print("pyscf energy per atom:", kmf.e_tot/n)
     print("pyscf converged", kmf.converged)
 
