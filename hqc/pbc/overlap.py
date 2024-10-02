@@ -114,6 +114,9 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
 
     alpha_coeff_cart, n_gto_s, n_gto_p = _make_alpha_coeff_cart() # (n_all_alpha, n_gto_cart+1)
 
+    L *= rs
+    cell = jnp.eye(3)
+
     def gen_lattice():
         """
             Return lattice T within the cutoff radius in real space.
@@ -138,7 +141,7 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
     prod_alpha = all_alpha[:, None] * all_alpha[None, :]  # (n_all_alpha, n_all_alpha)
     alpha2 = prod_alpha / sum_alpha  # (n_all_alpha, n_all_alpha)
 
-    def _make_overlap_kinetic():
+    def _make_overlap():
         """
             make overlap function.
             if l_max == 0, return eval_overlap_s.
@@ -229,7 +232,6 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
                     xp2: array of shape (3,), position of protons.
                 Returns:
                     ovlp: array of shape (n_ao, n_ao), overlap matrix.
-                    T: array of shape (n_ao, n_ao), kinetic matrix.
             """
             overlap_s = _eval_intermediate_integral(xp1, xp2)
             overlap_sp  = jacfwd(_eval_intermediate_integral, argnums=1)(xp1, xp2)
@@ -285,6 +287,7 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
             Returns:
                 ovlp: array of shape (n_ao, n_ao), overlap matrix, real.
         """
+        xp *= rs
         return eval_overlap_noreshape(xp, xp).reshape(n_ao, n_ao)
 
     def overlap_kpt(xp, kpt):
@@ -296,12 +299,13 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
             Returns:
                 ovlp: array of shape (n_ao, n_ao), overlap matrix, complex.
         """
+        xp *= rs
         return eval_overlap_kpt_noreshape(xp, xp, kpt).reshape(n_ao, n_ao)
 
     if gamma:
         overlap_func = overlap
     else:
-        return overlap_func = overlap_kpt
+        overlap_func = overlap_kpt
     
     if use_jit:
         return jit(overlap_func)
