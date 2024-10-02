@@ -513,12 +513,148 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # return vep, eris, eris0
         return vep, rhoG
 
+    def eval_vep_eris_kpt(xp, pbc_gaussian_power_xyz):
+        """
+            k-point version.
+            Use jax.lax.scan to calculate vep matrix and electron repulsion integrals (eris).
+            INPUT:
+                xp: array of shape (n, 3), position of protons.
+                pbc_gaussian_power_xyz: array of shape (n, 3, n_grid_eris, n_all_alpha, n_l)'
+                one dimensional gaussian power for each proton.
+            OUTPUT:
+                vep: array of shape (n_ao, n_ao), Vep matrix.
+                eris0: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals at gamma point.
+                eris: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals.
+
+        """
+        unknown1 = 0.22578495
+
+        SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
+        vlocG = -SI * VG # (nx, ny, nz)
+
+        def body_fun(carry, pbc_gaussian_power_xyz_one):
+            pbc_gaussian_power2R_xyz = jnp.einsum('ndgal,dgbk->dgnablk', pbc_gaussian_power_xyz, pbc_gaussian_power_xyz_one.conjugate())
+            pbc_gaussian_power2G_xyz = jnp.fft.fft(pbc_gaussian_power2R_xyz, axis=1)*jnp.linalg.det(cell)**(1/3)*(L/n_grid)
+            pbc_gaussian_power2G_xyz = jnp.concatenate([pbc_gaussian_power2G_xyz[:,-n_grid//2+1:], pbc_gaussian_power2G_xyz[:,:-n_grid//2+1]], axis=1)
+            pbc_gaussian_cart2G_xyz = jnp.einsum('dgnablk,dlc,dke->dgnabce', pbc_gaussian_power2G_xyz, power2cart, power2cart)
+        
+            pbc_gaussian_cart2G = jnp.einsum('xnabce,ynabce,znabce->yxznabce', pbc_gaussian_cart2G_xyz[0], pbc_gaussian_cart2G_xyz[1],
+                                            pbc_gaussian_cart2G_xyz[2])
+            pbc_gto_cart2G = jnp.einsum('yxznabce,aco,bep->yxznop', pbc_gaussian_cart2G, alpha_coeff_gto_cart2sph, alpha_coeff_gto_cart2sph)
+            return carry, pbc_gto_cart2G
+        
+        _, rhoG = jax.lax.scan(body_fun, None, pbc_gaussian_power_xyz)
+        rhoG = (rhoG.transpose(1,2,3,4,5,0,6)).reshape(n_grid, n_grid, n_grid, n_ao, n_ao) # (n_grid3_eris, n_ao, n_ao)
+        rhoG0 = rhoG[n_grid//2,n_grid//2,n_grid//2]
+        
+        # vep matrix
+        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG)
+
+        # # # eris
+        # # einsum (vmap)
+        # # max batchsize 56 (no jit)
+        # # hf time: 7.2888023853302 (no jit)
+        # # max batchsize 40 (jit)
+        # # hf time: 2.2167017459869385 (jit)
+        eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
+
+        # # for x
+        # # max batchsize 68 (no jit)
+        # # hf time: 7.186677932739258 (no jit)
+        # # max batchsize 78 (jit)
+        # # hf time: 4.62881875038147 (jit)
+        # eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
+        # for ix in range(n_grid):
+        #     eris += jnp.einsum('yz,yzrs,yzqp->prsq', VG[ix], rhoG[ix], rhoG[ix])
+
+        # # for xy
+        # # max batchsize 68 (no jit)
+        # # hf time: 8.341909408569336 (no jit)
+        # # max batchsize 118 (jit)
+        # # hf time: 13.894800424575806 (jit)
+        # eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
+        # for ix in range(n_grid):
+        #     for iy in range(n_grid):
+        #         eris += jnp.einsum('z,zrs,zqp->prsq', VG[ix, iy], rhoG[ix, iy], rhoG[ix, iy])
+        
+        # # # jax.lax.scan
+        # # max batchsize 108 (jit)
+        # # hf time: 11.287713766098022 (jit)
+        # VG1 = VG.reshape(n_grid3)
+        # rhoG = rhoG.reshape(n_grid3, n_ao, n_ao)
+        # eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
+        # def body_fun(carry, x):
+        #     carry += jnp.einsum('rs,qp->prsq', x[1], x[1])*x[0]
+        #     return carry, 0
+        # eris, _ = jax.lax.scan(body_fun, eris, xs=[VG1, rhoG], length=n_grid3)
+
+        # jax.lax.scan
+        # max batchsize 108 (jit)
+        # hf time: 11.287713766098022 (jit)
+        # VG1 = VG.reshape(n_grid3)
+        # rhoG = rhoG.reshape(n_grid3, n_ao, n_ao)
+        # eris = jnp.zeros((n_ao, n_ao, n_ao, n_ao))
+        # def body_fun(carry, x):
+        #     carry += jnp.einsum('rs,qp->prsq', x[1], x[1])*x[0]
+        #     return carry, 0
+        # eris, _ = jax.lax.scan(body_fun, eris, xs=[VG1, rhoG], length=n_grid3, unroll=n_grid**2)
+
+        # del rhoG
+        eris0 = jnp.einsum('rs,qp->prsq', rhoG0, rhoG0)*4*jnp.pi/L/jnp.linalg.det(cell)**(1/3)*unknown1
+
+        return vep, eris, eris0
+
+    def eval_vep_eris_new_kpt(xp, pbc_gaussian_power_xyz):
+        """
+            k-point version.
+            Use jax.lax.scan to calculate vep matrix and electron repulsion integrals (eris).
+            INPUT:
+                xp: array of shape (n, 3), position of protons.
+                pbc_gaussian_power_xyz: array of shape (n, 3, n_grid_eris, n_all_alpha, n_l)'
+                one dimensional gaussian power for each proton.
+            OUTPUT:
+                vep: array of shape (n_ao, n_ao), Vep matrix.
+                eris0: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals at gamma point.
+                eris: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals.
+
+        """
+        unknown1 = 0.22578495
+
+        SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
+        vlocG = -SI * VG # (nx, ny, nz)
+
+        def body_fun(carry, pbc_gaussian_power_xyz_one):
+            pbc_gaussian_power2R_xyz = jnp.einsum('ndgal,dgbk->dgnablk', pbc_gaussian_power_xyz, pbc_gaussian_power_xyz_one.conjugate())
+            pbc_gaussian_power2G_xyz = jnp.fft.fft(pbc_gaussian_power2R_xyz, axis=1)*jnp.linalg.det(cell)**(1/3)*(L/n_grid)
+            pbc_gaussian_power2G_xyz = jnp.concatenate([pbc_gaussian_power2G_xyz[:,-n_grid//2+1:], pbc_gaussian_power2G_xyz[:,:-n_grid//2+1]], axis=1)
+            pbc_gaussian_cart2G_xyz = jnp.einsum('dgnablk,dlc,dke->dgnabce', pbc_gaussian_power2G_xyz, power2cart, power2cart)
+        
+            pbc_gaussian_cart2G = jnp.einsum('xnabce,ynabce,znabce->yxznabce', pbc_gaussian_cart2G_xyz[0], pbc_gaussian_cart2G_xyz[1],
+                                            pbc_gaussian_cart2G_xyz[2])
+            pbc_gto_cart2G = jnp.einsum('yxznabce,aco,bep->yxznop', pbc_gaussian_cart2G, alpha_coeff_gto_cart2sph, alpha_coeff_gto_cart2sph)
+            return carry, pbc_gto_cart2G
+        
+        _, rhoG = jax.lax.scan(body_fun, None, pbc_gaussian_power_xyz)
+        rhoG = (rhoG.transpose(1,2,3,4,5,0,6)).reshape(n_grid, n_grid, n_grid, n_ao, n_ao) # (n_grid, n_grid, n_grid, n_ao, n_ao)
+    
+        # vep matrix
+        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG) # (n_ao, n_ao)
+
+        # eris
+        # eris0 = jnp.einsum('rs,qp->prsq', rhoG[n_grid//2,n_grid//2,n_grid//2], 
+        #                    rhoG[n_grid//2,n_grid//2,n_grid//2])*4*jnp.pi/L/jnp.linalg.det(cell)**(1/3)*unknown1
+        # eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
+
+
+        # return vep, eris, eris0
+        return vep, rhoG
+
     occupation = make_occupation_func(n, n_mo, smearing=smearing, smearing_method=smearing_method, 
                                       smearing_sigma=smearing_sigma, search_method=search_method, 
                                       search_cycle=search_cycle, search_tol=search_tol)
 
     def density_matrix(mo_coeff, w1):
-        """
+        """ 
             density matrix for closed-shell system. (Hermitian)
             Args:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
@@ -527,7 +663,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 dm: array of shape (n_ao, n_ao), density matrix.
         """
         dm_mo = jnp.diag(occupation(w1))
-        dm = jnp.einsum('ab,bc,dc->ad', mo_coeff, dm_mo, mo_coeff)
+        dm = jnp.einsum('ab,bc,dc->ad', mo_coeff, dm_mo, mo_coeff.conjugate())
         return dm
 
     def hartree(eris, dm):
