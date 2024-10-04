@@ -339,9 +339,9 @@ def make_lcao(n, L, rs, basis='gth-szv',
                     T: array of shape (n_ao, n_ao), kinetic matrix.
             """
             overlap_s, kinetic_s = _eval_intermediate_integral_kpt(xp1, xp2, kpt)
-            overlap_sp, kinetic_sp = jacfwd(_eval_intermediate_integral, argnums=1)(xp1, xp2)
-            overlap_ps, kinetic_ps = jacfwd(_eval_intermediate_integral, argnums=0)(xp1, xp2)
-            overlap_p, kinetic_p = jacfwd(jacfwd(_eval_intermediate_integral), argnums=1)(xp1, xp2)
+            overlap_sp, kinetic_sp = jacfwd(_eval_intermediate_integral_kpt, argnums=1)(xp1, xp2, kpt)
+            overlap_ps, kinetic_ps = jacfwd(_eval_intermediate_integral_kpt, argnums=0)(xp1, xp2, kpt)
+            overlap_p, kinetic_p = jacfwd(jacfwd(_eval_intermediate_integral_kpt), argnums=1)(xp1, xp2, kpt)
 
             ovlp = _matrix_s_p(overlap_s, overlap_sp, overlap_ps, overlap_p)
             T = _matrix_s_p(kinetic_s, kinetic_sp, kinetic_ps, kinetic_p)
