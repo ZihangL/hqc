@@ -11,12 +11,12 @@ from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_g
 
 
 def make_lcao(n, L, rs, basis='gth-szv', 
-            rcut=24, tol=1e-7, max_cycle=50, grid_length=0.12, 
-            diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0,
-            use_jit=True, dft=False, xc='lda,vwn',
-            smearing=False, smearing_method='fermi', smearing_sigma=0.,
-            search_method='newton', search_cycle=100, search_tol=1e-7,
-            gamma=True):
+              rcut=24, tol=1e-7, max_cycle=50, grid_length=0.12, 
+              diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0,
+              use_jit=True, dft=False, xc='lda,vwn',
+              smearing=False, smearing_method='fermi', smearing_sigma=0.,
+              search_method='newton', search_cycle=100, search_tol=1e-7,
+              gamma=True):
     """
         Make PBC Hartree Fock function.
         INPUT:
@@ -214,7 +214,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         
         # evaluate atomic orbitals on Rmesh
         eval_pbc_ao_kpt = make_pbc_gto(basis, L, gamma=gamma, lcao_xyz=False)
-        eval_pbc_ao_kpt = vmap(eval_pbc_ao, (None, 0, None), 1)
+        eval_pbc_ao_kpt = vmap(eval_pbc_ao_kpt, (None, 0, None), 1)
         eval_pbc_ao_kpt_Rmesh = lambda xp, kpt: eval_pbc_ao_kpt(xp, Rmesh, kpt)
 
     def make_overlap_kinetic():
@@ -548,7 +548,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         rhoG0 = rhoG[n_grid//2,n_grid//2,n_grid//2]
         
         # vep matrix
-        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG)
+        vep = jnp.einsum('xyz,xyzqp->pq', vlocG, rhoG.conjugate())
 
         # # # eris
         # # einsum (vmap)
@@ -556,7 +556,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # # hf time: 7.2888023853302 (no jit)
         # # max batchsize 40 (jit)
         # # hf time: 2.2167017459869385 (jit)
-        eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
+        eris = jnp.einsum('xyz,xyzrs,xyzpq->prsq', VG, rhoG, rhoG.conjugate())
 
         # # for x
         # # max batchsize 68 (no jit)
@@ -869,7 +869,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         xp *= rs
 
         # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp)
+        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
@@ -877,7 +877,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         # potential (Vep), Hartree & Exchange integral initialization
         pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, eris, eris0 = eval_vep_eris(xp, pbc_gaussian_power_xyz)
+        V, eris, eris0 = eval_vep_eris_kpt(xp, pbc_gaussian_power_xyz)
 
         # core Hamiltonian
         Hcore = T + V
@@ -899,6 +899,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("initial mo_coeff:\n{x}", x=mo_coeff)
         # jax.debug.print("initial w1:\n{x}", x=w1)
         # jax.debug.print("begin scf loop")
+        # jax.debug.print("overlap: {x}", x=ovlp)
+        # jax.debug.print("hcore: {x}", x=Hcore)
         # =====================================================
 
         # scf loop
@@ -921,14 +923,15 @@ def make_lcao(n, L, rs, basis='gth-szv',
             dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
             # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
+            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm).real
 
             # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
+            jax.debug.print("======= fp =======")
+            jax.debug.print("loop: {x}", x=loop)
+            jax.debug.print("F:\n{x}", x=F)
             # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
+            jax.debug.print("dm:\n{x}", x=dm)
+            jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
             # jax.debug.print(jax.Device.addressable_memories())
             # jax.debug.print(jax.Device.default_memory)
             # jax.debug.print(jax.Device.memory)
@@ -1455,19 +1458,22 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    if dft:
-        if diis:
-            lcao = dft_diis
+    if gamma:
+        if dft:
+            if diis:
+                lcao = dft_diis
+            else:
+                lcao = dft_fp
         else:
-            lcao = dft_fp
-    else:
-        if diis:
-            lcao = hf_diis
-        else:
-            lcao = hf_fp
+            if diis:
+                lcao = hf_diis
+            else:
+                lcao = hf_fp
 
-    if use_jit:
-        return jit(lcao)
+        if use_jit:
+            return jit(lcao)
+        else:
+            return lcao
     else:
-        return lcao
-        
+        return hf_fp_kpt
+            
