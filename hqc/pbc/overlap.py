@@ -252,9 +252,9 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
                     ovlp: array of shape (n_ao, n_ao), overlap matrix.
             """
             overlap_s = _eval_intermediate_integral_kpt(xp1, xp2, kpt)
-            overlap_sp = jacfwd(_eval_intermediate_integral, argnums=1)(xp1, xp2)
-            overlap_ps = jacfwd(_eval_intermediate_integral, argnums=0)(xp1, xp2)
-            overlap_p = jacfwd(jacfwd(_eval_intermediate_integral), argnums=1)(xp1, xp2)
+            overlap_sp = jacfwd(_eval_intermediate_integral_kpt, argnums=1)(xp1, xp2, kpt)
+            overlap_ps = jacfwd(_eval_intermediate_integral_kpt, argnums=0)(xp1, xp2, kpt)
+            overlap_p = jacfwd(jacfwd(_eval_intermediate_integral_kpt), argnums=1)(xp1, xp2, kpt)
 
             ovlp = _matrix_s_p(overlap_s, overlap_sp, overlap_ps, overlap_p)
             return ovlp
