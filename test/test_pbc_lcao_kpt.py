@@ -133,10 +133,10 @@ def test_hf():
     n, dim = 4, 3
     rs = 1.5
     basis_set = ['gth-szv', 'gth-dzv', 'gth-dzvp']
-    basis_set = ['gth-dzvp']
     rcut = 24
     grid_length = 0.12
     dft = False
+    diis = True
     smearing = True
     sigma = 0.05
     L = (4/3*jnp.pi*n)**(1/3)
@@ -163,7 +163,7 @@ def test_hf():
 
         # PBC energy test
         mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, kpt, smearing=smearing)
-        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, gamma=False)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, diis=diis, dft=dft, smearing=smearing, smearing_sigma=sigma, gamma=False)
         mo_coeff, bands, E = lcao(xp, kpt)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
