@@ -19,7 +19,7 @@ print(find_packages())
 
 setup(
     name='hqc',
-    version='0.1.3',
+    version='0.1.4',
     description='Quantum chemistry calculations in Hydrogen system.',
     url='https://code.itp.ac.cn/lzh/hydrogen-qc',
     author='lzh',

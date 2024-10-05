@@ -1754,6 +1754,214 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
+    def dft_diis_kpt(xp, kpt):
+        """
+            PBC DFT at kpt, using DIIS.
+            INPUT:
+                xp: array of shape (n, dim), position of protons in rs unit.
+                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
+                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
+                    1BZ: (-pi/L, pi/L)
+            OUTPUT:
+                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+        """
+        assert xp.shape[0] == n
+        xp *= rs
+
+        # overlap and kinetic initialization
+        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
+
+        # diagonalization of overlap
+        w, u = jnp.linalg.eigh(ovlp)
+        v = jnp.dot(u, jnp.diag(w**(-0.5)))
+
+        # potential (Vep), Hartree & Exchange & correlation integral initialization
+        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
+        V, rhoG = eval_vep_eris_new_kpt(xp, pbc_gaussian_power_xyz) # V (n_ao, n_ao), rhoG (n_grid, n_grid, n_grid, n_ao, n_ao)
+        ao_Rmesh = eval_pbc_ao_kpt_Rmesh(xp, kpt) # (n_ao, n_grid3) ao value on real space mesh
+        eval_Exc_Vxc = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
+                                                                                                                                                                                                                                                                                                             
+        # core Hamiltonian
+        Hcore = T + V
+
+        # intialize molecular orbital
+        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
+        w1, c1 = jnp.linalg.eigh(f1)
+
+        # Hcore initial guess (1e initial guess)
+        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+        dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+
+        # initial J & XC
+        J = hartree_rhoG(rhoG, dm)
+        Exc, Vxc = eval_Exc_Vxc(dm)
+
+        # initial F
+        F_init = Hcore + J + Vxc
+
+        # initial error vector
+        errvec_init = get_diis_errvec_sdf(ovlp, dm, F_init)
+
+        # initial F and error vector series for DIIS
+        F_k = jnp.repeat(F_init[None, ...], diis_space, axis=0)
+        errvec_k = jnp.repeat(errvec_init[None, ...], diis_space, axis=0)
+        
+        # ======================= debug =======================
+        # jax.debug.print("J-J_new:\n{x}", x=J-J_new)
+        # jax.debug.print("K-K_new:\n{x}", x=K-K_new)
+        # jax.debug.print("w of ovlp:\n{x}", x=w)
+        # jax.debug.print("dm-dm_new:\n{x}", x=dm-dm_new)
+        # jax.debug.print("w**(-0.5) of ovlp:\n{x}", x=w**(-0.5))
+        # jax.debug.print("u of ovlp:\n{x}", x=u)
+        # jax.debug.print("v of ovlp:\n{x}", x=v)
+        # jax.debug.print("Hcore:\n{x}", x=Hcore)
+        # jax.debug.print("f1:\n{x}", x=f1)
+        # jax.debug.print("initial mo_coeff:\n{x}", x=mo_coeff)
+        # jax.debug.print("initial dm:\n{x}", x=dm)
+        # jax.debug.print("w1 of F_init:\n{x}", x=w1)
+        # jax.debug.print("initial dm_mo:\n{x}", x=dm_mo)
+        # jax.debug.print("number of particles:{x}", x=jnp.trace(ovlp @ dm))
+        # jax.debug.print("number of particles:{x}", x=jnp.trace(dm1))
+        # jax.debug.print("max element of errvev:{x}", x=jnp.max(errvec_init))
+        # jax.debug.print("e:\n{x}", x=jnp.diag(w1))
+        # jax.debug.print("FC-SCe:\n{x}", x=F_init@mo_coeff-ovlp@mo_coeff@jnp.diag(w1))
+        # jax.debug.print("initial w1:\n{x}", x=w1)
+        # jax.debug.print("begin scf loop")
+        # jax.debug.print("initial F_k.shape:\n{x}", x=F_k.shape)
+        # jax.debug.print("initial F_k:\n{x}", x=F_k)
+        # jax.debug.print("initial errvec_k.shape:\n{x}", x=errvec_k.shape)
+        # =====================================================
+
+        # fixed point iteration
+        def fp_body_fun(carry):
+            _, E, _, _, loop, F_k, errvec_k = carry
+
+            # last Fock matrix
+            F = F_k[-1]
+
+            # diagonalization
+            F1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+            w1, c1 = jnp.linalg.eigh(F1)
+
+            # next molecular orbitals and density matrix
+            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+
+            # next J and xc
+            J = hartree_rhoG(rhoG, dm)
+            Exc, Vxc = eval_Exc_Vxc(dm)
+
+            # next energy
+            E_new = jnp.einsum('pq,qp', Hcore + 0.5*J, dm).real + Exc
+ 
+            # next Fock matrix
+            F = Hcore + J + Vxc
+            
+            # next error vector
+            errvec = get_diis_errvec_sdf(ovlp, dm, F)
+            
+            # update F and error vector series for DIIS
+            F_k = jnp.concatenate((F_k[1:], jnp.array([F])), axis=0)
+            errvec_k = jnp.concatenate((errvec_k[1:], jnp.array([errvec])), axis=0)
+
+            # ======================= debug =======================
+            # jax.debug.print("======= fp =======")
+            # jax.debug.print("loop: {x}", x=loop)
+            # jax.debug.print("F:\n{x}", x=F)
+            # jax.debug.print("F-F_dagger:\n{x}", x=F-F.T.conjugate())
+            # jax.debug.print("w1:\n{x}", x=w1)
+            # jax.debug.print("max element of errvev:{x}", x=jnp.max(errvec))
+            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
+            # jax.debug.print("number of particles:{x}", x=jnp.trace(ovlp @ dm))
+            # jax.debug.print("number of particles:{x}", x=jnp.trace(dm1))
+            # jax.debug.print("latest error vector:{x}", x=errvec)
+            # =====================================================
+
+            return (E, E_new, mo_coeff, w1, loop+1, F_k, errvec_k)
+        
+        def fp_cond_fun(carry):
+            return carry[4] < diis_start_cycle + diis_space
+            
+        _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(fp_cond_fun, fp_body_fun, (0., 0., mo_coeff, w1, 0, F_k, errvec_k))
+
+        # ======================= debug =======================
+        # jax.debug.print("end scf loop {x}", x=loop-1)
+        # jax.debug.print("F_k:\n{x}", x=F_k)
+        # jax.debug.print("errvec_k:\n{x}", x=errvec_k)
+        # =====================================================
+
+        def diis_body_fun(carry):
+            _, E, _, _, loop, F_k, errvec_k = carry
+
+            # get DIIS c_k
+            B = jnp.einsum('imn,jmn->ij', errvec_k, errvec_k)
+            temp1 = -jnp.ones((diis_space, 1))
+            temp2 = jnp.array([jnp.append(-jnp.ones(diis_space), 0)])
+            h = jnp.concatenate((jnp.concatenate((B, temp1), axis=1), temp2), axis=0)
+            g = jnp.append(jnp.zeros(diis_space), -1)
+            c_k = jnp.linalg.solve(h, g)[:diis_space]
+
+            # guess Fock matrix
+            _F = jnp.einsum('k,kab->ab', c_k, F_k)
+
+            # damp
+            _F = (1 - diis_damp) * _F + diis_damp * F_k[-1]
+
+            # diagonalization
+            F1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), _F, v)
+            w1, c1 = jnp.linalg.eigh(F1)
+
+            # molecular orbitals and density matrix
+            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+
+            # next J anx xc
+            J = hartree_rhoG(rhoG, dm)
+            Exc, Vxc = eval_Exc_Vxc(dm)
+
+            # next energy
+            E_new = jnp.einsum('pq,qp', Hcore + 0.5*J, dm).real + Exc
+
+            # next Fock matrix
+            F = Hcore + J + Vxc
+
+            # next error vector
+            errvec = get_diis_errvec_sdf(ovlp, dm, F)
+
+            # update F and error vector series for DIIS
+            F_k = jnp.concatenate((F_k[1:], jnp.array([F])), axis=0)
+            errvec_k = jnp.concatenate((errvec_k[1:], jnp.array([errvec])), axis=0)
+
+            # ======================= debug =======================
+            # jax.debug.print("======= diis =======")
+            # w_diis, v_diis = jnp.linalg.eigh(h)
+            # jax.debug.print("latest errvec:{x}", x=errvec)
+            # jax.debug.print("loop: {x}", x=loop)
+            # jax.debug.print("max element of errvev:{x}", x=jnp.max(errvec))
+            # jax.debug.print("w of diis h:\n{x}", x=w_diis)
+            # jax.debug.print("c_k: {x}", x=c_k)
+            # jax.debug.print("F:\n{x}", x=F)
+            # jax.debug.print("w1:\n{x}", x=w1)
+            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
+            # jax.debug.print("Kinetic energy:{x}", x=jnp.einsum('pq,qp', T, dm))
+            # jax.debug.print("Potential energy:{x}", x=jnp.einsum('pq,qp', V, dm))
+            # jax.debug.print("Hartree energy:{x}", x=0.5*jnp.einsum('pq,qp', J, dm))
+            # jax.debug.print("Exchange & correlation energy:{x}", x=Exc)
+            # jax.debug.print("number of particles:{x}", x=jnp.trace(ovlp @ dm))
+            # jax.debug.print("number of particles:{x}", x=jnp.trace(dm1))
+            # =====================================================
+
+            return (E, E_new, mo_coeff, w1, loop+1, F_k, errvec_k)
+
+        def diis_cond_fun(carry):
+            return (jnp.abs(carry[1] - carry[0]) > tol) * (carry[4] < max_cycle)
+
+        _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
+
+        return mo_coeff, w1 * Ry, E * Ry
+
     if gamma:
         if dft:
             if diis:

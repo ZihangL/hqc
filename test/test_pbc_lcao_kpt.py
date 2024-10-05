@@ -122,9 +122,28 @@ def pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc='lda,vwn', smearing=False, sme
     bands = kmf.get_bands(kpts_band=kpt, kpt=np.array(kpt))[0][0]
     E = kmf.e_tot - kmf.energy_nuc()
 
-    # print("pyscf e_elec (Ha):", kmf.e_tot-kmf.energy_nuc())
-    # print("pyscf e_elec (Ha):", kmf.energy_elec())
-    # print("pyscf e_nuc (Ha):", kmf.energy_nuc())
+    # print("dir(kmf):", dir(kmf))
+    # pyscf_ovlp = kmf.get_ovlp(kpt=kpt)[0]
+    # print("pyscf overlap.shape:\n", pyscf_ovlp.shape)
+    # print("pyscf overlap:\n", pyscf_ovlp)
+    # pyscf_hcore = kmf.get_hcore(kpt=kpt)[0]
+    # print("pyscf hcore.shape:\n", pyscf_hcore.shape)
+    # print("pyscf hcore:\n", pyscf_hcore)
+    # pyscf_veff = kmf.get_veff(kpt=kpt)
+    # print("pyscf veff.shape:\n", pyscf_veff.shape)
+    # print("pyscf veff:\n", pyscf_veff)
+    # pyscf_dm = kmf.make_rdm1(kpt=kpt)
+    # print("pyscf dm.shape:\n", pyscf_dm.shape)
+    # print("pyscf dm:\n", pyscf_dm)
+    # pyscf_j= kmf.get_j(kpt=kpt)
+    # print("pyscf j.shape:\n", pyscf_j.shape)
+    # print("pyscf j:\n", pyscf_j)
+    # pyscf_fock = kmf.get_fock()
+    # print("pyscf fock.shape:\n", pyscf_fock.shape)
+    # print("pyscf fock:\n", pyscf_fock)
+    # pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
+    # print("pyscf k.shape:\n", pyscf_k.shape)
+    # print("pyscf k:\n", pyscf_k)
     
     return mo_coeff, bands * Ry, E * Ry
 
@@ -196,8 +215,8 @@ def test_dft():
     grid_length = 0.12
     dft = True
     xc = "lda,vwn"
-    diis = False
-    smearing = False
+    diis = True
+    smearing = True
     sigma = 0.05
     L = (4/3*jnp.pi*n)**(1/3)
 
@@ -231,17 +250,17 @@ def test_dft():
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
         print("mo_coeff:\n", mo_coeff)
         print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
-        # assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
+        assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
         print("same mo_coeff")
         
         print("bands:\n", bands)
         print("bands_pyscf:\n", bands_pyscf)
-        # assert np.allclose(bands, bands_pyscf, atol=1e-3)
+        assert np.allclose(bands, bands_pyscf, atol=1e-3)
         print("same bands")
 
         print("E:", E)
         print("E_pyscf:", E_pyscf)
-        # assert np.allclose(E, E_pyscf, atol=1e-3)
+        assert np.allclose(E, E_pyscf, atol=1e-3)
         print("same E")
 
         # vmap test
