@@ -168,7 +168,7 @@ def test_hf():
             pyscf_hf(n, L, rs, 0, xp, basis, kpt, smearing=smearing)
 
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, gamma=False)
-        mo_coeff, bands, E, ovlp, hcore, dm, J, K, F, pyscf_dm1, pyscf_J1, pyscf_K1, pyscf_F1, pyscf_mo_coeff1 = lcao(xp, kpt, pyscf_dm, pyscf_fock)
+        mo_coeff, bands, E, ovlp, hcore, dm, J, K, F, pyscf_dm1, pyscf_J1, pyscf_K1, pyscf_F1, pyscf_mo_coeff1, pyscf_dm2 = lcao(xp, kpt, pyscf_dm, pyscf_fock, mo_coeff_pyscf)
 
         # print("ovlp:\n", ovlp)
         # print("pyscf_ovlp:\n", pyscf_ovlp)
@@ -190,6 +190,11 @@ def test_hf():
         assert np.allclose(dm, pyscf_dm, atol=1e-3)
         print("same dm")
 
+        # print("pyscf dm:\n", pyscf_dm)
+        # print("dm using pyscf mo_coeff:\n", pyscf_dm2)
+        assert np.allclose(pyscf_dm, pyscf_dm2, atol=1e-3)
+        print("use mo_coeff from pyscf, get same dm")
+
         # print("pyscf j:\n", pyscf_j)
         # print("my pyscf j:\n", pyscf_J1)
         assert np.allclose(pyscf_j, pyscf_J1, atol=1e-3)
@@ -200,13 +205,19 @@ def test_hf():
         assert np.allclose(pyscf_k, pyscf_K1, atol=1e-3)
         print("use pyscf density matrix, get same K")
 
-        # mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
-        # mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
-        print("mo_coeff:\n", mo_coeff)
-        print("my pyscf mo_coeff:\n", pyscf_mo_coeff1)
-        print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
+        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
+        # print("mo_coeff:\n", mo_coeff)
+        # print("pyscf mo_coeff:\n", mo_coeff_pyscf)
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
         print("same mo_coeff")
+
+        pyscf_mo_coeff1 = pyscf_mo_coeff1 @ jnp.diag(jnp.sign(pyscf_mo_coeff1[0]).conjugate())
+        # print("my pyscf mo_coeff:\n", pyscf_mo_coeff1)
+        # print("pyscf mo_coeff:\n", mo_coeff_pyscf)
+        assert np.allclose(pyscf_mo_coeff1, mo_coeff_pyscf, atol=1e-3)
+        print("use pyscf fock, get same mo_coeff with pyscf")
+
 
         print("E:", E)
         print("E_pyscf:", E_pyscf)
