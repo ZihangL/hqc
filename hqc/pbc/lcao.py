@@ -618,8 +618,6 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 eris: array of shape (n_ao, n_ao, n_ao, n_ao), two-electron repulsion integrals.
 
         """
-        unknown1 = 0.22578495
-
         SI = jnp.sum(jnp.exp(-1j*Gmesh.dot(xp.T)), axis=3) # (nx, ny, nz)
         vlocG = -SI * VG # (nx, ny, nz)
 
@@ -635,18 +633,11 @@ def make_lcao(n, L, rs, basis='gth-szv',
             return carry, pbc_gto_cart2G
         
         _, rhoG = jax.lax.scan(body_fun, None, pbc_gaussian_power_xyz)
-        rhoG = (rhoG.transpose(1,2,3,4,5,0,6)).reshape(n_grid, n_grid, n_grid, n_ao, n_ao) # (n_grid, n_grid, n_grid, n_ao, n_ao)
-    
+        rhoG = (rhoG.transpose(1,2,3,4,5,0,6)).reshape(n_grid, n_grid, n_grid, n_ao, n_ao) # (n_grid3_eris, n_ao, n_ao)
+
         # vep matrix
-        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG) # (n_ao, n_ao)
+        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG.conjugate())
 
-        # eris
-        # eris0 = jnp.einsum('rs,qp->prsq', rhoG[n_grid//2,n_grid//2,n_grid//2], 
-        #                    rhoG[n_grid//2,n_grid//2,n_grid//2])*4*jnp.pi/L/jnp.linalg.det(cell)**(1/3)*unknown1
-        # eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
-
-
-        # return vep, eris, eris0
         return vep, rhoG
 
     occupation = make_occupation_func(n, n_mo, smearing=smearing, smearing_method=smearing_method, 
@@ -699,10 +690,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
             Returns:
                 hartree matrix: array of shape (n_ao, n_ao)
         """
-        # eris = jnp.einsum('xyz,xyzrs,xyzqp->prsq', VG, rhoG, rhoG)
+        # eris = jnp.einsum('xyz,xyzrs,xyzpq->prsq', VG, rhoG, rhoG.conjugate())
         # J = jnp.einsum('rs,prsq->pq', dm, eris)
         rho = jnp.einsum('rs,xyzrs->xyz', dm, rhoG) # (n_grid, n_grid, n_grid)
-        J = jnp.einsum('xyz,xyz,xyzqp->pq', rho, VG, rhoG) # (n_ao, n_ao)
+        J = jnp.einsum('xyz,xyz,xyzpq->pq', rho, VG, rhoG.conjugate()) # (n_ao, n_ao)
         return J
 
     def exchange_rhoG(rhoG, mo_coeff):
@@ -746,10 +737,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 Exc: float, Exc integral.
                 Vxc: array of shape (n_ao, n_ao), Vxc integral matrix.
         """
-        rho_Rmesh = jnp.einsum('pr,qr,pq->r', ao_Rmesh, ao_Rmesh, dm) # test probe
+        rho_Rmesh = jnp.einsum('pr,qr,pq->r', ao_Rmesh, ao_Rmesh.conjugate(), dm).real # test probe
         Exc = jnp.sum(exc_rho_functional(rho_Rmesh))*(L/n_grid)**3*jnp.linalg.det(cell)
         Vxc_Rmesh = vxc_functional(rho_Rmesh) # (n_grid3,)
-        Vxc = jnp.einsum('pr,qr,r->pq', ao_Rmesh, ao_Rmesh, Vxc_Rmesh)*(L/n_grid)**3*jnp.linalg.det(cell)
+        Vxc = jnp.einsum('pr,qr,r->pq', ao_Rmesh.conjugate(), ao_Rmesh, Vxc_Rmesh)*(L/n_grid)**3*jnp.linalg.det(cell)
         return Exc, Vxc
 
     def get_diis_errvec_sdf(s, d, f):
@@ -1459,6 +1450,104 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
+    def dft_fp_kpt(xp, kpt):
+        """
+            PBC DFT at kpt, using fixed point iteration.
+            INPUT:
+                xp: array of shape (n, dim), position of protons in rs unit.
+                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
+                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
+                    1BZ: (-pi/L, pi/L)
+            OUTPUT:
+                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+        """
+        assert xp.shape[0] == n
+        xp *= rs
+
+        # overlap and kinetic initialization
+        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
+
+        # diagonalization of overlap
+        w, u = jnp.linalg.eigh(ovlp)
+        v = jnp.dot(u, jnp.diag(w**(-0.5)))
+
+        # potential (Vep), Hartree & Exchange & correlation integral initialization
+        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
+        V, rhoG = eval_vep_eris_new_kpt(xp, pbc_gaussian_power_xyz) # V (n_ao, n_ao), rhoG (n_grid, n_grid, n_grid, n_ao, n_ao)
+        ao_Rmesh = eval_pbc_ao_kpt_Rmesh(xp, kpt) # (n_ao, n_grid3) ao value on real space mesh
+        eval_Exc_Vxc = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
+        
+        # core Hamiltonian
+        Hcore = T + V
+
+        # intialize molecular orbital
+        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
+        w1, c1 = jnp.linalg.eigh(f1)
+
+        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+        dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+
+        # ======================= debug =======================
+        # jax.debug.print("w of ovlp:\n{x}", x=w)
+        # jax.debug.print("w**(-0.5) of ovlp:\n{x}", x=w**(-0.5))
+        # jax.debug.print("u of ovlp:\n{x}", x=u)
+        # jax.debug.print("v of ovlp:\n{x}", x=v)
+        # jax.debug.print("Hcore:\n{x}", x=Hcore)
+        # jax.debug.print("f1:\n{x}", x=f1)
+        # jax.debug.print("initial mo_coeff:\n{x}", x=mo_coeff)
+        # jax.debug.print("initial w1:\n{x}", x=w1)
+        # jax.debug.print("begin scf loop")
+        # =====================================================
+
+        # scf loop
+        def body_fun(carry):
+            _, E, _, dm, _, loop = carry
+
+            # Hartree & Exchange
+            J = hartree_rhoG(rhoG, dm)
+            Exc, Vxc = eval_Exc_Vxc(dm)
+
+            # energy
+            E_new = jnp.einsum('pq,qp', Hcore + 0.5*J, dm).real + Exc
+
+            # Fock matrix
+            F = Hcore + J + Vxc
+
+            # diagonalization
+            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+            w1, c1 = jnp.linalg.eigh(f1)
+
+            # molecular orbitals and density matrix
+            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+
+            # ======================= debug =======================
+            # jax.debug.print("======= fp =======")
+            # jax.debug.print("loop: {x}", x=loop)
+            # jax.debug.print("F:\n{x}", x=F)
+            # jax.debug.print("w1:\n{x}", x=w1)
+            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
+            # jax.debug.print(jax.Device.addressable_memories())
+            # jax.debug.print(jax.Device.default_memory)
+            # jax.debug.print(jax.Device.memory)
+            # jax.debug.print(jax.Device.memory_stats)
+            # =====================================================
+
+            return (E, E_new, mo_coeff, dm, w1, loop+1)
+        
+        def cond_fun(carry):
+            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
+            
+        _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
+
+        # ======================= debug =======================
+        # jax.debug.print("end scf loop {x}", x=loop)
+        # =====================================================
+
+        return mo_coeff, w1 * Ry, E * Ry
+
     def dft_diis(xp):
         """
             PBC DFT. kpt = (0,0,0)
@@ -1678,7 +1767,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 lcao = hf_fp
     else:
         if dft:
-            pass
+            if diis:
+                lcao = dft_diis_kpt
+            else:
+                lcao = dft_fp_kpt
         else:
             if diis:
                 lcao = hf_diis_kpt
