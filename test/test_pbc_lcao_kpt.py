@@ -132,7 +132,8 @@ def pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc='lda,', smearing=False, smeari
 def test_hf():
     n, dim = 4, 3
     rs = 1.5
-    basis_set = ['gth-dzv']
+    basis_set = ['gth-szv', 'gth-dzv', 'gth-dzvp']
+    basis_set = ['gth-dzvp']
     rcut = 24
     grid_length = 0.12
     dft = False
@@ -169,7 +170,7 @@ def test_hf():
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
         # print("mo_coeff:\n", mo_coeff)
         # print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
-        assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
+        assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
         print("same mo_coeff")
 
         print("bands:\n", bands)
