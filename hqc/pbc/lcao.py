@@ -927,11 +927,11 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
             # ======================= debug =======================
             # jax.debug.print("======= fp =======")
-            jax.debug.print("loop: {x}", x=loop)
+            # jax.debug.print("loop: {x}", x=loop)
             # jax.debug.print("F:\n{x}", x=F)
             # jax.debug.print("w1:\n{x}", x=w1)
             # jax.debug.print("dm:\n{x}", x=dm)
-            jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
+            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
             # jax.debug.print(jax.Device.addressable_memories())
             # jax.debug.print(jax.Device.default_memory)
             # jax.debug.print(jax.Device.memory)
