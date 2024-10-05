@@ -210,7 +210,6 @@ def test_dft():
     n, dim = 4, 3
     rs = 1.5
     basis_set = ['gth-szv', 'gth-dzv', 'gth-dzvp']
-    basis_set = ['gth-szv']
     rcut = 24
     grid_length = 0.12
     dft = True
