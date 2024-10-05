@@ -852,7 +852,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
     
-    def hf_fp_kpt(xp, kpt, pyscf_dm, pyscf_fock, pyscf_mo_coeff):
+    def hf_fp_kpt(xp, kpt):
         """
             PBC Hartree Fock.
             INPUT:
@@ -945,29 +945,11 @@ def make_lcao(n, L, rs, basis='gth-szv',
             
         _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
 
-        J = hartree(eris, dm)
-        K = exchange(eris+eris0, dm)
-        F = Hcore + J - 0.5 * K
-
         # ======================= debug =======================
         # jax.debug.print("end scf loop {x}", x=loop)
-
-        # 1.diagonalize pyscf fock
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), pyscf_fock, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-        pyscf_mo_coeff1 = jnp.dot(v, c1) # (n_ao, n_mo)
-        pyscf_dm1 = density_matrix(pyscf_mo_coeff1, w1) # (n_ao, n_ao)
-
-        # 2.calculate pyscf fock
-        pyscf_J1 = hartree(eris, pyscf_dm)
-        pyscf_K1 = exchange(eris+eris0, pyscf_dm)
-        pyscf_F1 = Hcore + pyscf_J1 - 0.5 * pyscf_K1
-
-        # 3.calculate density matrix using pyscf mo_coeff
-        pyscf_dm2 = density_matrix(pyscf_mo_coeff, w1) # (n_ao, n_ao)
         # =====================================================
 
-        return mo_coeff, w1 * Ry, E * Ry, ovlp, Hcore, dm, J, K, F, pyscf_dm1, pyscf_J1, pyscf_K1, pyscf_F1, pyscf_mo_coeff1, pyscf_dm2
+        return mo_coeff, w1 * Ry, E * Ry
     
     def hf_diis(xp):
         """
