@@ -248,7 +248,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 Args:
                     xp1: array of shape (3,), position of protons.
                     xp2: array of shape (3,), position of protons.
-                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L/rs, pi/L/rs)
                 Returns:
                     overlap: array of shape (n_all_alpha, n_all_alpha), overlap integrals.
                     kinetic: array of shape (n_all_alpha, n_all_alpha), kinetic energy integrals.
@@ -281,7 +281,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 Args:
                     xp1: array of shape (3,), position of protons.
                     xp2: array of shape (3,), position of protons.
-                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L/rs, pi/L/rs)
                 Returns:
                     ovlp: array of shape (n_ao_one_atom, n_ao_one_atom), overlap matrix.
                     T: array of shape (n_ao_one_atom, n_ao_one_atom), kinetic matrix.
@@ -333,7 +333,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 Args:
                     xp1: array of shape (3,), position of protons.
                     xp2: array of shape (3,), position of protons.
-                    kpt: array of shape (3,), k point. 1BZ: (-pi/L, pi/L)
+                    kpt: array of shape (3,), k point. 1BZ: (-pi/L/rs, pi/L/rs)
                 Returns:
                     ovlp: array of shape (n_ao, n_ao), overlap matrix.
                     T: array of shape (n_ao, n_ao), kinetic matrix.
@@ -850,7 +850,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
                 kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L, pi/L)
+                    1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
@@ -1154,7 +1154,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
                 kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L, pi/L)
+                    1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
@@ -1457,7 +1457,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
                 kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L, pi/L)
+                    1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
@@ -1761,7 +1761,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
                 kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L, pi/L)
+                    1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.

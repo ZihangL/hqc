@@ -163,6 +163,8 @@ def test_hf():
     key_p, key_kpt = jax.random.split(key)
     xp = jax.random.uniform(key_p, (n, dim), minval=0., maxval=L)
     kpt = jax.random.uniform(key_kpt, (3,))
+    # kpt = jnp.array([0., 0., 0.]) # Gamma point
+    # kpt = jnp.array([jnp.pi/L/rs, 0., 0.]) # boundary of 1st Brillouin zone
     
     print(print("\n============= begin test ============="))
     print("n:", n)
@@ -186,7 +188,7 @@ def test_hf():
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
-        # print("mo_coeff:\n", mo_coeff)
+        print("mo_coeff:\n", mo_coeff)
         # print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
         print("same mo_coeff")
@@ -223,8 +225,9 @@ def test_dft():
     key_p, key_kpt = jax.random.split(key)
     xp = jax.random.uniform(key_p, (n, dim), minval=0., maxval=L)
     kpt = jax.random.uniform(key_kpt, (3,))
-    # kpt = jnp.array([0., 0., 0.])
-    
+    # kpt = jnp.array([0., 0., 0.]) # Gamma point
+    # kpt = jnp.array([jnp.pi/L/rs, 0., 0.]) # boundary of 1st Brillouin zone
+
     print(print("\n============= begin test ============="))
     print("n:", n)
     print("rs:", rs)
