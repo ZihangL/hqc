@@ -50,25 +50,35 @@ def pyscf_hf(n, L, rs, sigma, xp, basis, kpt, hf0=False, smearing=False, smearin
     kmf.verbose = 0
     kmf.kernel()
     mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
-    bands = kmf.get_bands(kpts_band=cell.make_kpts([1,1,1]))[0][0]
+    bands = kmf.get_bands(kpts_band=kpt, kpt=kpt)[0][0]
     E = kmf.e_tot - kmf.energy_nuc()
 
     print("dir(kmf):", dir(kmf))
-    pyscf_ovlp = kmf.get_ovlp(kpt=kpt)
-    print("pyscf overlap:\n", pyscf_ovlp)
-    pyscf_hcore = kmf.get_hcore(kpt=kpt)
-    print("pyscf hcore:\n", pyscf_hcore)
+    pyscf_ovlp = kmf.get_ovlp(kpt=kpt)[0]
+    print("pyscf overlap.shape:\n", pyscf_ovlp.shape)
+    # print("pyscf overlap:\n", pyscf_ovlp)
+    pyscf_hcore = kmf.get_hcore(kpt=kpt)[0]
+    print("pyscf hcore.shape:\n", pyscf_hcore.shape)
+    # print("pyscf hcore:\n", pyscf_hcore)
     pyscf_veff = kmf.get_veff(kpt=kpt)
-    print("pyscf veff:\n", pyscf_veff)
+    print("pyscf veff.shape:\n", pyscf_veff.shape)
+    # print("pyscf veff:\n", pyscf_veff)
     pyscf_dm = kmf.make_rdm1(kpt=kpt)
-    print("pyscf dm:\n", pyscf_dm)
+    print("pyscf dm.shape:\n", pyscf_dm.shape)
+    # print("pyscf dm:\n", pyscf_dm)
+    pyscf_j= kmf.get_j(kpt=kpt)
+    print("pyscf j.shape:\n", pyscf_j.shape)
+    # print("pyscf j:\n", pyscf_j)
     pyscf_fock = kmf.get_fock()
-    print("pyscf fock:\n", pyscf_fock)
+    print("pyscf fock.shape:\n", pyscf_fock.shape)
+    # print("pyscf fock:\n", pyscf_fock)
+    pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
+    print("pyscf k.shape:\n", pyscf_k.shape)
+    # print("pyscf k:\n", pyscf_k)
     # print("pyscf potential:\n", kmf.get_vnuc())
-    # print("pyscf Hcore:\n", kmf.get_hcore())
     # print("pyscf e_tot:", E*Ry)
 
-    return mo_coeff, bands * Ry, E * Ry
+    return mo_coeff, bands * Ry, E * Ry, pyscf_ovlp, pyscf_hcore, pyscf_dm, pyscf_j, pyscf_k, pyscf_fock
 
 
 def pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc='lda,', smearing=False, smearing_method='fermi'):
@@ -112,7 +122,7 @@ def pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc='lda,', smearing=False, smeari
     kmf.verbose = 0
     kmf.kernel()
     mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
-    bands = kmf.get_bands(kpts_band=cell.make_kpts([1,1,1]))[0][0]
+    bands = kmf.get_bands(kpts_band=kpt, kpt=kpt)[0][0]
     E = kmf.e_tot - kmf.energy_nuc()
 
     # print("pyscf e_elec (Ha):", kmf.e_tot-kmf.energy_nuc())
@@ -135,6 +145,7 @@ def test_hf():
     key_p, key_kpt = jax.random.split(key)
     xp = jax.random.uniform(key_p, (n, dim), minval=0., maxval=L)
     kpt = jax.random.uniform(key_kpt, (3,))
+    # kpt = jnp.array([0., 0., 0.])
     
     print(print("\n============= begin test ============="))
     print("n:", n)
@@ -152,30 +163,64 @@ def test_hf():
         print("\n==========", basis, "==========")
 
         # PBC energy test
-        mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, 0, xp, basis, kpt, smearing=smearing)
-        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, gamma=False)
-        mo_coeff, bands, E = lcao(xp, kpt)
+        mo_coeff_pyscf, bands_pyscf, E_pyscf, pyscf_ovlp, \
+            pyscf_hcore, pyscf_dm, pyscf_j, pyscf_k, pyscf_fock = \
+            pyscf_hf(n, L, rs, 0, xp, basis, kpt, smearing=smearing)
 
-        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
-        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, gamma=False)
+        mo_coeff, bands, E, ovlp, hcore, dm, J, K, F, pyscf_dm1, pyscf_J1, pyscf_K1, pyscf_F1, pyscf_mo_coeff1 = lcao(xp, kpt, pyscf_dm, pyscf_fock)
+
+        # print("ovlp:\n", ovlp)
+        # print("pyscf_ovlp:\n", pyscf_ovlp)
+        assert np.allclose(ovlp, pyscf_ovlp, atol=1e-3)
+        print("same ovlp")
+
+        # print("hcore:\n", hcore)
+        # print("pyscf_hcore:\n", pyscf_hcore)
+        assert np.allclose(hcore, pyscf_hcore, atol=1e-3)
+        print("same hcore")
+
+        # print("pyscf dm:\n", pyscf_dm)
+        # print("my pyscf dm:\n", pyscf_dm1)
+        assert np.allclose(pyscf_dm, pyscf_dm1, atol=1e-3)
+        print("diagonalize the Fock matrix from pyscf, get same dm")
+
+        # print("dm:\n", dm)
+        # print("pyscf dm:\n", pyscf_dm)
+        assert np.allclose(dm, pyscf_dm, atol=1e-3)
+        print("same dm")
+
+        # print("pyscf j:\n", pyscf_j)
+        # print("my pyscf j:\n", pyscf_J1)
+        assert np.allclose(pyscf_j, pyscf_J1, atol=1e-3)
+        print("use pyscf density matrix, get same J")
+
+        # print("pyscf k:\n", pyscf_k)
+        # print("my pyscf k:\n", pyscf_K1)
+        assert np.allclose(pyscf_k, pyscf_K1, atol=1e-3)
+        print("use pyscf density matrix, get same K")
+
+        # mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
+        # mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
         print("mo_coeff:\n", mo_coeff)
+        print("my pyscf mo_coeff:\n", pyscf_mo_coeff1)
         print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-3)
         print("same mo_coeff")
-
-        print("bands:\n", bands)
-        print("bands_pyscf:\n", bands_pyscf)
-        assert np.allclose(bands, bands_pyscf, atol=1e-3)
-        print("same bands")
 
         print("E:", E)
         print("E_pyscf:", E_pyscf)
         assert np.allclose(E, E_pyscf, atol=1e-3)
         print("same E")
 
+        print("bands:\n", bands)
+        print("bands_pyscf:\n", bands_pyscf)
+        assert np.allclose(bands, bands_pyscf, atol=1e-3)
+        print("same bands")
+
         # vmap test
-        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
-        jax.vmap(lcao, 0, (0, 0, 0))(xp2)
+        # xp2 = jnp.concatenate([xp, xp]).reshape(2, n, dim)
+        # jax.vmap(lcao, 0, (0, 0, 0))(xp2)
         
 
 def test_dft():

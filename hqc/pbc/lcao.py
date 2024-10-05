@@ -548,7 +548,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         rhoG0 = rhoG[n_grid//2,n_grid//2,n_grid//2]
         
         # vep matrix
-        vep = jnp.einsum('xyz,xyzqp->pq', vlocG, rhoG.conjugate())
+        vep = jnp.einsum('xyz,xyzpq->pq', vlocG, rhoG.conjugate())
 
         # # # eris
         # # einsum (vmap)
@@ -852,7 +852,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
     
-    def hf_fp_kpt(xp, kpt):
+    def hf_fp_kpt(xp, kpt, pyscf_dm, pyscf_fock):
         """
             PBC Hartree Fock.
             INPUT:
@@ -890,7 +890,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         dm = density_matrix(mo_coeff, w1)
 
         # ======================= debug =======================
-        # jax.debug.print("w of ovlp:\n{x}", x=w)
+        jax.debug.print("w of ovlp:\n{x}", x=w)
         # jax.debug.print("w**(-0.5) of ovlp:\n{x}", x=w**(-0.5))
         # jax.debug.print("u of ovlp:\n{x}", x=u)
         # jax.debug.print("v of ovlp:\n{x}", x=v)
@@ -926,11 +926,11 @@ def make_lcao(n, L, rs, basis='gth-szv',
             E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm).real
 
             # ======================= debug =======================
-            jax.debug.print("======= fp =======")
+            # jax.debug.print("======= fp =======")
             jax.debug.print("loop: {x}", x=loop)
-            jax.debug.print("F:\n{x}", x=F)
+            # jax.debug.print("F:\n{x}", x=F)
             # jax.debug.print("w1:\n{x}", x=w1)
-            jax.debug.print("dm:\n{x}", x=dm)
+            # jax.debug.print("dm:\n{x}", x=dm)
             jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
             # jax.debug.print(jax.Device.addressable_memories())
             # jax.debug.print(jax.Device.default_memory)
@@ -945,11 +945,27 @@ def make_lcao(n, L, rs, basis='gth-szv',
             
         _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
 
+        J = hartree(eris, dm)
+        K = exchange(eris+eris0, dm)
+        F = Hcore + J - 0.5 * K
+
         # ======================= debug =======================
         # jax.debug.print("end scf loop {x}", x=loop)
+
+        # 1.diagonalize pyscf fock
+        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), pyscf_fock, v)
+        w1, c1 = jnp.linalg.eigh(f1)
+        pyscf_mo_coeff1 = jnp.dot(v, c1) # (n_ao, n_mo)
+        pyscf_dm1 = density_matrix(pyscf_mo_coeff1, w1) # (n_ao, n_ao)
+
+        # 2.calculate pyscf fock
+        pyscf_J1 = hartree(eris, pyscf_dm)
+        pyscf_K1 = exchange(eris+eris0, pyscf_dm)
+        pyscf_F1 = Hcore + pyscf_J1 - 0.5 * pyscf_K1
+
         # =====================================================
 
-        return mo_coeff, w1 * Ry, E * Ry
+        return mo_coeff, w1 * Ry, E * Ry, ovlp, Hcore, dm, J, K, F, pyscf_dm1, pyscf_J1, pyscf_K1, pyscf_F1, pyscf_mo_coeff1
     
     def hf_diis(xp):
         """
