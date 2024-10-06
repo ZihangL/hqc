@@ -807,9 +807,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
             return Ex, Vx
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
-                                     hartree_fn, exchange_fn, density_matrix,
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                     density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
     
@@ -871,9 +870,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
             return Ex, Vx
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
-                                     hartree_fn, exchange_fn, density_matrix,
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                     density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
     
@@ -1324,7 +1322,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         w1, c1 = jnp.linalg.eigh(f1)
 
         mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+        dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
         # ======================= debug =======================
         # jax.debug.print("w of ovlp:\n{x}", x=w)
@@ -1338,50 +1336,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("begin scf loop")
         # =====================================================
 
-        # scf loop
-        def body_fun(carry):
-            _, E, _, dm, _, loop = carry
+        hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
+        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
 
-            # Hartree & Exchange
-            J = hartree_rhoG(rhoG, dm)
-            Exc, Vxc = eval_Exc_Vxc(dm)
-
-            # energy
-            E_new = jnp.einsum('pq,qp', Hcore + 0.5*J, dm) + Exc
-
-            # Fock matrix
-            F = Hcore + J + Vxc
-
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            w1, c1 = jnp.linalg.eigh(f1)
-
-            # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-            # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
-            # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
-            # jax.debug.print(jax.Device.addressable_memories())
-            # jax.debug.print(jax.Device.default_memory)
-            # jax.debug.print(jax.Device.memory)
-            # jax.debug.print(jax.Device.memory_stats)
-            # =====================================================
-
-            return (E, E_new, mo_coeff, dm, w1, loop+1)
-        
-        def cond_fun(carry):
-            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
-            
-        _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
-
-        # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop)
-        # =====================================================
+        # fixed point scf iteration
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+                                     density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
 
@@ -1436,50 +1396,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("begin scf loop")
         # =====================================================
 
-        # scf loop
-        def body_fun(carry):
-            _, E, _, dm, _, loop = carry
+        hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
+        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
 
-            # Hartree & Exchange
-            J = hartree_rhoG(rhoG, dm)
-            Exc, Vxc = eval_Exc_Vxc(dm)
-
-            # energy
-            E_new = jnp.einsum('pq,qp', Hcore + 0.5*J, dm).real + Exc
-
-            # Fock matrix
-            F = Hcore + J + Vxc
-
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            w1, c1 = jnp.linalg.eigh(f1)
-
-            # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-            # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
-            # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
-            # jax.debug.print(jax.Device.addressable_memories())
-            # jax.debug.print(jax.Device.default_memory)
-            # jax.debug.print(jax.Device.memory)
-            # jax.debug.print(jax.Device.memory_stats)
-            # =====================================================
-
-            return (E, E_new, mo_coeff, dm, w1, loop+1)
-        
-        def cond_fun(carry):
-            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
-            
-        _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
-
-        # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop)
-        # =====================================================
+        # fixed point scf iteration
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+                                     density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
 
@@ -1740,55 +1662,23 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("begin scf loop")
         # =====================================================
 
-        # scf loop
-        def body_fun(carry):
-            _, E, mo_coeff, dm, w1, loop, _, _, _ = carry
+        hartree_fn = lambda dm: hartree(eris, dm)
+        def exchange_fn(dm):
+            Vx = -0.5*exchange(eris+eris0, dm)
+            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            return Ex, Vx
 
-            # Hartree & Exchange
-            J = hartree(eris, dm)
-            K = exchange(eris+eris0, dm)
+        # fixed point scf iteration
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                     density_matrix, tol=tol, max_cycle=max_cycle)
 
-            # Fock matrix
-            F = Hcore + J - 0.5 * K
-
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            w1, c1 = jnp.linalg.eigh(f1)
-
-            # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-            # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
-
-            # other observables
-            Ki = jnp.einsum('pq,pq', T, dm)
-            Vep = jnp.einsum('pq,pq', V, dm)
-            Vee = 0.5*jnp.einsum('pq,pq', J-0.5*K, dm)
-
-            # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
-            # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
-            # jax.debug.print(jax.Device.addressable_memories())
-            # jax.debug.print(jax.Device.default_memory)
-            # jax.debug.print(jax.Device.memory)
-            # jax.debug.print(jax.Device.memory_stats)
-            # =====================================================
-
-            return (E, E_new, mo_coeff, dm, w1, loop+1, Ki, Vep, Vee)
-        
-        def cond_fun(carry):
-            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
-            
-        _, E, mo_coeff, dm, w1, loop, Ki, Vep, Vee = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0, 0., 0., 0.))
-
-        # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop)
-        # =====================================================
+        # other observables
+        dm = density_matrix(mo_coeff, w1)
+        J = hartree_fn(dm)
+        Ex, Vx = exchange_fn(dm)
+        Ki = jnp.einsum('pq,pq', T, dm).real
+        Vep = jnp.einsum('pq,pq', V, dm).real
+        Vee = 0.5*jnp.einsum('pq,pq', J, dm).real + Ex
 
         return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
     
@@ -2214,6 +2104,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
+    if mode == 'debug':
+        if diis:
+            lcao = hf_diis_debug
+        else:
+            lcao = hf_fp_debug
+
     if gamma:
         if dft:
             if diis:
@@ -2221,18 +2117,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
             else:
                 lcao = dft_fp
         else:
-            if mode == 'default':
-                if diis:
-                    lcao = hf_diis
-                else:
-                    lcao = hf_fp
-            elif mode == 'debug':
-                if diis:
-                    lcao = hf_diis_debug
-                else:
-                    lcao = hf_fp_debug
+            if diis:
+                lcao = hf_diis
             else:
-                raise ValueError("mode should be 'default' or 'debug'")
+                lcao = hf_fp
     else:
         if dft:
             if diis:
