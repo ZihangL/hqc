@@ -991,10 +991,9 @@ def make_lcao(n, L, rs, basis='gth-szv',
         dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
         hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
@@ -1039,10 +1038,9 @@ def make_lcao(n, L, rs, basis='gth-szv',
         dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
         hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
@@ -1086,11 +1084,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
         dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
         hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1138,11 +1135,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
         dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
 
         hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-        exchange_correlation_fn = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1274,10 +1270,16 @@ def make_lcao(n, L, rs, basis='gth-szv',
         return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
 
     if mode == 'debug':
-        if diis:
-            lcao = hf_diis_debug
+        if gamma:
+            if diis:
+                lcao = hf_diis_debug
+            else:
+                lcao = hf_fp_debug
         else:
-            lcao = hf_fp_debug
+            if diis:
+                lcao = hf_diis_kpt_debug
+            else:
+                lcao = hf_fp_kpt_debug
 
     if gamma:
         if dft:
