@@ -3,7 +3,7 @@ import numpy as np
 import jax.numpy as jnp
 
 def fixed_point(v_ovlp, Hcore, dm_init,
-                hartree_fn, exchange_correlation_fn, density_matrix_fn, energy_fn, 
+                hartree_fn, exchange_correlation_fn, density_matrix_fn,
                 tol=1e-7, max_cycle=100):
     """
         Fixed point iteration for SCF.
@@ -16,14 +16,13 @@ def fixed_point(v_ovlp, Hcore, dm_init,
             hartree_fn: function to compute coulomb repulsion between electrons (Hartree term)
                 J = hartree_fn(dm), where dm and J has shape (n_ao, n_ao)
             exchange_correlation_fn: function to compute exchange-correlation energy
-                Vxc = exchange_correlation_fn(dm), where dm and Vxc has shape (n_ao, n_ao)
+                Exc, Vxc = exchange_correlation_fn(dm), where Exc is a real float,
+                dm and Vxc has shape (n_ao, n_ao)
                 for Hartree-Fock, Vxc = -0.5*K, for DFT, Vxc = Vxc
                 F = Hcore + J + Vxc
             density_matrix_fn: function to compute density matrix
                 dm = density_matrix_fn(mo_coeff, w1), where mo_coeff has shape (n_ao, n_mo)
                 and w1 has shape (n_mo,), dm has shape (n_ao, n_ao)
-            energy_fn: function to compute energy
-                energy = energy_fn(dm, J, Vxc)
             tol: float, tolerance
             max_iter: int, maximum number of iterations
         Output:
@@ -37,10 +36,10 @@ def fixed_point(v_ovlp, Hcore, dm_init,
 
         # hartree and exchange-correlation term
         J = hartree_fn(dm)
-        Vxc = exchange_correlation_fn(dm)
+        Exc, Vxc = exchange_correlation_fn(dm)
 
         # energy
-        E_new = energy_fn(dm, Hcore, J, Vxc)
+        E_new = 0.5*jnp.einsum('pq,qp', 2*Hcore+J, dm).real+Exc
 
         # Fock matrix
         F = Hcore + J + Vxc

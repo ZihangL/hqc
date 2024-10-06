@@ -801,11 +801,14 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # =====================================================
 
         hartree_fn = lambda dm: hartree(eris, dm)
-        exchange_fn = lambda dm: -0.5*exchange(eris+eris0, dm)
-        energy_fn = lambda dm, J, Vxc: 0.5*jnp.einsum('pq,qp', 2*Hcore+J+Vxc, dm).real
+        def exchange_fn(dm):
+            Vx = -0.5*exchange(eris+eris0, dm)
+            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            return Ex, Vx
 
+        # fixed point scf iteration
         mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
-                                     hartree_fn, exchange_fn, density_matrix, energy_fn, 
+                                     hartree_fn, exchange_fn, density_matrix,
                                      tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
@@ -862,11 +865,14 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # =====================================================
 
         hartree_fn = lambda dm: hartree(eris, dm)
-        exchange_fn = lambda dm: -0.5*exchange(eris+eris0, dm)
-        energy_fn = lambda dm, J, Vxc: 0.5*jnp.einsum('pq,qp', 2*Hcore+J+Vxc, dm).real
+        def exchange_fn(dm):
+            Vx = -0.5*exchange(eris+eris0, dm)
+            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            return Ex, Vx
 
+        # fixed point scf iteration
         mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
-                                     hartree_fn, exchange_fn, density_matrix, energy_fn, 
+                                     hartree_fn, exchange_fn, density_matrix,
                                      tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
