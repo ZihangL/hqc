@@ -5,13 +5,14 @@ from functools import partial
 from jax import vmap, grad, jit, jacfwd
 
 from hqc.pbc.gto import make_pbc_gto
+from hqc.pbc.scf import fixed_point, diis
 from hqc.tools.smearing import make_occupation_func
 from hqc.tools.excor import make_exchange_func, make_correlation_func
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
 
 
 def make_lcao(n, L, rs, basis='gth-szv', 
-              rcut=24, tol=1e-7, max_cycle=50, grid_length=0.12, 
+              rcut=24, tol=1e-7, max_cycle=100, grid_length=0.12, 
               diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0,
               use_jit=True, dft=False, xc='lda,vwn',
               smearing=False, smearing_method='fermi', smearing_sigma=0.,
@@ -767,7 +768,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         xp *= rs
 
         # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp, kpt)
+        ovlp, T = eval_overlap_kinetic(xp, xp)
 
         # diagonalization of overlap
         w, u = jnp.linalg.eigh(ovlp)
@@ -785,7 +786,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         w1, c1 = jnp.linalg.eigh(f1)
 
         mo_coeff = jnp.dot(v, c1)
-        dm = density_matrix(mo_coeff, w1)
+        dm_init = density_matrix(mo_coeff, w1)
 
         # ======================= debug =======================
         # jax.debug.print("w of ovlp:\n{x}", x=w)
@@ -799,50 +800,13 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("begin scf loop")
         # =====================================================
 
-        # scf loop
-        def body_fun(carry):
-            _, E, mo_coeff, dm, w1, loop = carry
+        hartree_fn = lambda dm: hartree(eris, dm)
+        exchange_fn = lambda dm: -0.5*exchange(eris+eris0, dm)
+        energy_fn = lambda dm, J, Vxc: 0.5*jnp.einsum('pq,qp', 2*Hcore+J+Vxc, dm).real
 
-            # Hartree & Exchange
-            J = hartree(eris, dm)
-            K = exchange(eris+eris0, dm)
-
-            # Fock matrix
-            F = Hcore + J - 0.5 * K
-
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            w1, c1 = jnp.linalg.eigh(f1)
-
-            # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-            # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm)
-
-            # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
-            # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
-            # jax.debug.print(jax.Device.addressable_memories())
-            # jax.debug.print(jax.Device.default_memory)
-            # jax.debug.print(jax.Device.memory)
-            # jax.debug.print(jax.Device.memory_stats)
-            # =====================================================
-
-            return (E, E_new, mo_coeff, dm, w1, loop+1)
-        
-        def cond_fun(carry):
-            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
-            
-        _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
-
-        # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop)
-        # =====================================================
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
+                                     hartree_fn, exchange_fn, density_matrix, energy_fn, 
+                                     tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
     
@@ -881,7 +845,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         w1, c1 = jnp.linalg.eigh(f1)
 
         mo_coeff = jnp.dot(v, c1)
-        dm = density_matrix(mo_coeff, w1)
+        dm_init = density_matrix(mo_coeff, w1)
 
         # ======================= debug =======================
         # jax.debug.print("w of ovlp:\n{x}", x=w)
@@ -897,51 +861,13 @@ def make_lcao(n, L, rs, basis='gth-szv',
         # jax.debug.print("hcore: {x}", x=Hcore)
         # =====================================================
 
-        # scf loop
-        def body_fun(carry):
-            _, E, mo_coeff, dm, w1, loop = carry
+        hartree_fn = lambda dm: hartree(eris, dm)
+        exchange_fn = lambda dm: -0.5*exchange(eris+eris0, dm)
+        energy_fn = lambda dm, J, Vxc: 0.5*jnp.einsum('pq,qp', 2*Hcore+J+Vxc, dm).real
 
-            # Hartree & Exchange
-            J = hartree(eris, dm)
-            K = exchange(eris+eris0, dm)
-
-            # Fock matrix
-            F = Hcore + J - 0.5 * K
-
-            # diagonalization
-            f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
-            w1, c1 = jnp.linalg.eigh(f1)
-
-            # molecular orbitals and density matrix
-            mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-            dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-            # energy
-            E_new = 0.5*jnp.einsum('pq,qp', F+Hcore, dm).real
-
-            # ======================= debug =======================
-            # jax.debug.print("======= fp =======")
-            # jax.debug.print("loop: {x}", x=loop)
-            # jax.debug.print("F:\n{x}", x=F)
-            # jax.debug.print("w1:\n{x}", x=w1)
-            # jax.debug.print("dm:\n{x}", x=dm)
-            # jax.debug.print("E:{x}, E_new:{y}", x=E, y=E_new)
-            # jax.debug.print(jax.Device.addressable_memories())
-            # jax.debug.print(jax.Device.default_memory)
-            # jax.debug.print(jax.Device.memory)
-            # jax.debug.print(jax.Device.memory_stats)
-            # =====================================================
-
-            return (E, E_new, mo_coeff, dm, w1, loop+1)
-        
-        def cond_fun(carry):
-            return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
-            
-        _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff, dm, w, 0))
-
-        # ======================= debug =======================
-        # jax.debug.print("end scf loop {x}", x=loop)
-        # =====================================================
+        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, 
+                                     hartree_fn, exchange_fn, density_matrix, energy_fn, 
+                                     tol=tol, max_cycle=max_cycle)
 
         return mo_coeff, w1 * Ry, E * Ry
     
