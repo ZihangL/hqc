@@ -753,8 +753,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         """
         return s @ d @ f - f @ d @ s
 
-    scf_fn = make_scf(diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, 
-                      diis_damp=diis_damp, tol=tol, max_cycle=max_cycle)
+    scf = make_scf(diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, 
+                   diis_damp=diis_damp, tol=tol, max_cycle=max_cycle)
 
     def hf_gamma(xp):
         """
@@ -800,8 +800,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                         density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
     
@@ -851,8 +851,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                         density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
@@ -898,8 +898,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+                                         density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
@@ -947,8 +947,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+                                         density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
@@ -1002,8 +1002,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                         density_matrix, errvec_sdf_fn)
         
         # other observables
         dm = density_matrix(mo_coeff, w1)
@@ -1065,8 +1065,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                            density_matrix, errvec_sdf_fn)
+        mo_coeff, w1, E, converged = scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                         density_matrix, errvec_sdf_fn)
 
         # other observables
         dm = density_matrix(mo_coeff, w1)

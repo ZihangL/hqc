@@ -15,7 +15,7 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
         Output:
             scf: function to perform SCF
     """
-    def fixed_point(v_ovlp, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
+    def fixed_point_scf(v_ovlp, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
                     density_matrix_fn, errvec_sdf_fn):
         """
             Fixed point iteration for SCF.
@@ -229,4 +229,4 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
     if diis:
         return diis_scf
     else:
-        return fixed_point
+        return fixed_point_scf
