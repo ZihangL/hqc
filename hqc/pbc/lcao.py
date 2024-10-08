@@ -4,8 +4,8 @@ import jax.numpy as jnp
 from functools import partial
 from jax import vmap, grad, jit, jacfwd
 
+from hqc.pbc.scf import make_scf
 from hqc.pbc.gto import make_pbc_gto
-from hqc.pbc.scf import fixed_point, diis_scf
 from hqc.tools.smearing import make_occupation_func
 from hqc.tools.excor import make_exchange_func, make_correlation_func
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
@@ -753,7 +753,10 @@ def make_lcao(n, L, rs, basis='gth-szv',
         """
         return s @ d @ f - f @ d @ s
 
-    def hf_fp(xp):
+    scf_fn = make_scf(diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, 
+                      diis_damp=diis_damp, tol=tol, max_cycle=max_cycle)
+
+    def hf_gamma(xp):
         """
             PBC Hartree Fock. kpt = (0,0,0)
             INPUT:
@@ -785,6 +788,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
         w1, c1 = jnp.linalg.eigh(f1)
 
+        # Hcore initial guess (1e initial guess)
         mo_coeff = jnp.dot(v, c1)
         dm_init = density_matrix(mo_coeff, w1)
 
@@ -793,14 +797,15 @@ def make_lcao(n, L, rs, basis='gth-szv',
             Vx = -0.5*exchange(eris+eris0, dm)
             Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
+        errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                            density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
     
-    def hf_fp_kpt(xp, kpt):
+    def hf_kpt(xp, kpt):
         """
             PBC Hartree Fock at kpt.
             INPUT:
@@ -834,53 +839,6 @@ def make_lcao(n, L, rs, basis='gth-szv',
         f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
         w1, c1 = jnp.linalg.eigh(f1)
 
-        mo_coeff = jnp.dot(v, c1)
-        dm_init = density_matrix(mo_coeff, w1)
-
-        hartree_fn = lambda dm: hartree(eris, dm)
-        def exchange_fn(dm):
-            Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
-            return Ex, Vx
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
-
-        return mo_coeff, w1 * Ry, E * Ry
-    
-    def hf_diis(xp):
-        """
-            PBC Hartree Fock. kpt = (0,0,0)
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_Rmesh1D(xp) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, eris, eris0 = eval_vep_eris(xp, pbc_gaussian_power_xyz)
-
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
         # Hcore initial guess (1e initial guess)
         mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
         dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
@@ -893,159 +851,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                            density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def hf_diis_kpt(xp, kpt):
-        """
-            PBC Hartree Fock at kpt, using DIIS.
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L/rs, pi/L/rs)
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, eris, eris0 = eval_vep_eris_kpt(xp, pbc_gaussian_power_xyz)
-
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
-        # Hcore initial guess (1e initial guess)
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-        hartree_fn = lambda dm: hartree(eris, dm)
-        def exchange_fn(dm):
-            Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
-            return Ex, Vx
-        errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
-
-        return mo_coeff, w1 * Ry, E * Ry
-
-    def dft_fp(xp):
-        """
-            PBC DFT. kpt = (0,0,0)
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange & correlation integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_Rmesh1D(xp) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, rhoG = eval_vep_eris_new(xp, pbc_gaussian_power_xyz) # V (n_ao, n_ao), rhoG (n_grid, n_grid, n_grid, n_ao, n_ao)
-        ao_Rmesh = eval_pbc_ao_Rmesh(xp) # (n_ao, n_grid3) ao value on real space mesh
-        eval_Exc_Vxc = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
-        
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-        hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
-
-        return mo_coeff, w1 * Ry, E * Ry
-
-    def dft_fp_kpt(xp, kpt):
-        """
-            PBC DFT at kpt, using fixed point iteration.
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L/rs, pi/L/rs)
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange & correlation integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, rhoG = eval_vep_eris_new_kpt(xp, pbc_gaussian_power_xyz) # V (n_ao, n_ao), rhoG (n_grid, n_grid, n_grid, n_ao, n_ao)
-        ao_Rmesh = eval_pbc_ao_kpt_Rmesh(xp, kpt) # (n_ao, n_grid3) ao value on real space mesh
-        eval_Exc_Vxc = lambda dm: Exc_Vxc_integral(ao_Rmesh, dm)
-        
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        dm_init = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
-
-        hartree_fn = lambda dm: hartree_rhoG(rhoG, dm)
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
-
-        return mo_coeff, w1 * Ry, E * Ry
-
-    def dft_diis(xp):
+    def dft_gamma(xp):
         """
             PBC DFT. kpt = (0,0,0)
             INPUT:
@@ -1087,16 +898,14 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+                                            density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def dft_diis_kpt(xp, kpt):
+    def dft_kpt(xp, kpt):
         """
-            PBC DFT at kpt, using DIIS.
+            PBC DFT at kpt.
             INPUT:
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
@@ -1138,73 +947,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+                                            density_matrix, errvec_sdf_fn)
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def hf_fp_debug(xp):
-        """ 
-            'debug' mode function.
-            PBC Hartree Fock. kpt = (0,0,0)
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-                K: float, kinetic energy of the electrons, Unit: Rydberg.
-                Vep: float, potential energy of the electrons, Unit: Rydberg.
-                Vee: float, electron-electron interaction energy, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic(xp, xp)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_Rmesh1D(xp) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, eris, eris0 = eval_vep_eris(xp, pbc_gaussian_power_xyz)
-
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
-        mo_coeff = jnp.dot(v, c1)
-        dm_init = density_matrix(mo_coeff, w1)
-
-        hartree_fn = lambda dm: hartree(eris, dm)
-        def exchange_fn(dm):
-            Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
-            return Ex, Vx
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
-
-        # other observables
-        dm = density_matrix(mo_coeff, w1)
-        J = hartree_fn(dm)
-        Ex = exchange_fn(dm)[0]
-        Ki = jnp.einsum('pq,pq', T, dm).real
-        Vep = jnp.einsum('pq,pq', V, dm).real
-        Vee = 0.5*jnp.einsum('pq,pq', J, dm).real + Ex
-
-        return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
-    
-    def hf_diis_debug(xp):
+    def hf_gamma_debug(xp):
         """
             'debug' mode function.
             PBC Hartree Fock. kpt = (0,0,0)
@@ -1254,10 +1002,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                            density_matrix, errvec_sdf_fn)
         
         # other observables
         dm = density_matrix(mo_coeff, w1)
@@ -1268,72 +1014,11 @@ def make_lcao(n, L, rs, basis='gth-szv',
         Vee = 0.5*jnp.einsum('pq,pq', J, dm).real + Ex
 
         return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
-    
-    def hf_fp_kpt_debug(xp, kpt):
+
+    def hf_kpt_debug(xp, kpt):
         """
             'debug' mode function.
             PBC Hartree Fock at kpt.
-            INPUT:
-                xp: array of shape (n, dim), position of protons in rs unit.
-                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
-                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
-                    1BZ: (-pi/L/rs, pi/L/rs)
-            OUTPUT:
-                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
-                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
-                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
-                K: float, kinetic energy of the electrons, Unit: Rydberg.
-                Vep: float, potential energy of the electrons, Unit: Rydberg.
-                Vee: float, electron-electron interaction energy, Unit: Rydberg.
-        """
-        assert xp.shape[0] == n
-        xp *= rs
-
-        # overlap and kinetic initialization
-        ovlp, T = eval_overlap_kinetic_kpt(xp, xp, kpt)
-
-        # diagonalization of overlap
-        w, u = jnp.linalg.eigh(ovlp)
-        v = jnp.dot(u, jnp.diag(w**(-0.5)))
-
-        # potential (Vep), Hartree & Exchange integral initialization
-        pbc_gaussian_power_xyz = eval_pbc_gaussian_power_x_kpt_Rmesh1D(xp, kpt) # (n, 3, n_grid_eris, n_all_alpha, n_l)
-        V, eris, eris0 = eval_vep_eris_kpt(xp, pbc_gaussian_power_xyz)
-
-        # core Hamiltonian
-        Hcore = T + V
-
-        # intialize molecular orbital
-        f1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), Hcore, v)
-        w1, c1 = jnp.linalg.eigh(f1)
-
-        mo_coeff = jnp.dot(v, c1)
-        dm_init = density_matrix(mo_coeff, w1)
-
-        hartree_fn = lambda dm: hartree(eris, dm)
-        def exchange_fn(dm):
-            Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
-            return Ex, Vx
-
-        # fixed point scf iteration
-        mo_coeff, w1, E, converged = fixed_point(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, tol=tol, max_cycle=max_cycle)
-
-        # other observables
-        dm = density_matrix(mo_coeff, w1)
-        J = hartree_fn(dm)
-        Ex = exchange_fn(dm)[0]
-        Ki = jnp.einsum('pq,pq', T, dm).real
-        Vep = jnp.einsum('pq,pq', V, dm).real
-        Vee = 0.5*jnp.einsum('pq,pq', J, dm).real + Ex
-
-        return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
-
-    def hf_diis_kpt_debug(xp, kpt):
-        """
-            'debug' mode function.
-            PBC Hartree Fock at kpt, using DIIS.
             INPUT:
                 xp: array of shape (n, dim), position of protons in rs unit.
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
@@ -1380,10 +1065,8 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
-                                     density_matrix, errvec_sdf_fn, diis_space=diis_space, 
-                                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
-                                     tol=tol, max_cycle=max_cycle)
+        mo_coeff, w1, E, converged = scf_fn(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+                                            density_matrix, errvec_sdf_fn)
 
         # other observables
         dm = density_matrix(mo_coeff, w1)
@@ -1397,15 +1080,9 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
     if mode == 'debug':
         if gamma:
-            if diis:
-                lcao = hf_diis_debug
-            else:
-                lcao = hf_fp_debug
+            lcao = hf_gamma_debug
         else:
-            if diis:
-                lcao = hf_diis_kpt_debug
-            else:
-                lcao = hf_fp_kpt_debug
+            lcao = hf_kpt_debug
     elif mode == 'default':
         pass
     else:
@@ -1413,26 +1090,14 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
     if gamma:
         if dft:
-            if diis:
-                lcao = dft_diis
-            else:
-                lcao = dft_fp
+            lcao = dft_gamma
         else:
-            if diis:
-                lcao = hf_diis
-            else:
-                lcao = hf_fp
+            lcao = hf_gamma
     else:
         if dft:
-            if diis:
-                lcao = dft_diis_kpt
-            else:
-                lcao = dft_fp_kpt
+            lcao = dft_kpt
         else:
-            if diis:
-                lcao = hf_diis_kpt
-            else:
-                lcao = hf_fp_kpt
+            lcao = hf_kpt
 
     if use_jit:
         return jit(lcao)
