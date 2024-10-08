@@ -4,7 +4,7 @@ import jax.numpy as jnp
 
 def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7, max_cycle=100):
     """
-        Make SCF function.
+        Make SCF function for 'hqc.pbc.lcao'.
         Input:
             diis: bool, whether to use DIIS
             diis_space: int, number of vectors in DIIS space
@@ -14,6 +14,9 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
             max_iter: int, maximum number of iterations
         Output:
             scf: function to perform SCF
+                 if diis is True, scf returns DIIS SCF function
+                 if diis is False, scf returns fixed point SCF function
+                 These two functions have the same Interface.
     """
     def fixed_point_scf(v_ovlp, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
                     density_matrix_fn, errvec_sdf_fn):
