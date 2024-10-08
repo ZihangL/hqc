@@ -5,7 +5,7 @@ from functools import partial
 from jax import vmap, grad, jit, jacfwd
 
 from hqc.pbc.gto import make_pbc_gto
-from hqc.pbc.scf import fixed_point, diis
+from hqc.pbc.scf import fixed_point, diis_scf
 from hqc.tools.smearing import make_occupation_func
 from hqc.tools.excor import make_exchange_func, make_correlation_func
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
@@ -791,7 +791,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
 
         # fixed point scf iteration
@@ -840,7 +840,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
 
         # fixed point scf iteration
@@ -888,12 +888,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -941,12 +941,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1087,7 +1087,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1138,7 +1138,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, eval_Exc_Vxc, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1187,7 +1187,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
 
         # fixed point scf iteration
@@ -1249,12 +1249,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)
@@ -1313,7 +1313,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
 
         # fixed point scf iteration
@@ -1375,12 +1375,12 @@ def make_lcao(n, L, rs, basis='gth-szv',
         hartree_fn = lambda dm: hartree(eris, dm)
         def exchange_fn(dm):
             Vx = -0.5*exchange(eris+eris0, dm)
-            Ex = jnp.einsum('pq,qp', Vx, dm).real
+            Ex = 0.5*jnp.einsum('pq,qp', Vx, dm).real
             return Ex, Vx
         errvec_sdf_fn = lambda dm, F: get_diis_errvec_sdf(ovlp, dm, F)
 
         # fixed point scf iteration
-        mo_coeff, w1, E, converged = diis(v, Hcore, dm_init, hartree_fn, exchange_fn, 
+        mo_coeff, w1, E, converged = diis_scf(v, Hcore, dm_init, hartree_fn, exchange_fn, 
                                      density_matrix, errvec_sdf_fn, diis_space=diis_space, 
                                      diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                                      tol=tol, max_cycle=max_cycle)

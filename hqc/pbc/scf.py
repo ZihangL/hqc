@@ -48,11 +48,11 @@ def fixed_point(v_ovlp, Hcore, dm_init,
         F = Hcore + J + Vxc
 
         # diagonalization
-        F1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+        F1 = jnp.einsum('pq,qr,rs->ps', v_ovlp.T.conjugate(), F, v_ovlp)
         w1, c1 = jnp.linalg.eigh(F1)
 
         # molecular orbitals and density matrix
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+        mo_coeff = jnp.dot(v_ovlp, c1) # (n_ao, n_mo)
         dm = density_matrix_fn(mo_coeff, w1) # (n_ao, n_ao)
 
         # ======================= debug =======================
@@ -66,14 +66,14 @@ def fixed_point(v_ovlp, Hcore, dm_init,
         return (abs(carry[1] - carry[0]) > tol) * (carry[5] < max_cycle)
         
     _, E, mo_coeff, dm, w1, loop = jax.lax.while_loop(cond_fun, body_fun, (0., 1., mo_coeff_init, dm_init, w_init, 0))
-    converged = not loop==max_cycle
+    converged = jnp.logical_not(loop==max_cycle)
 
     return mo_coeff, w1, E, converged
 
-def diis(v_ovlp, Hcore, dm_init,
-         hartree_fn, exchange_correlation_fn, density_matrix_fn, errvec_sdf_fn,
-         diis_space=8, diis_start_cycle=1, diis_damp=0,
-         tol=1e-7, max_cycle=100):
+def diis_scf(v_ovlp, Hcore, dm_init,
+             hartree_fn, exchange_correlation_fn, density_matrix_fn, errvec_sdf_fn,
+             diis_space=8, diis_start_cycle=1, diis_damp=0,
+             tol=1e-7, max_cycle=100):
     """
         DIIS for SCF.
         Input:
@@ -110,10 +110,10 @@ def diis(v_ovlp, Hcore, dm_init,
     w_init = jnp.empty_like(dm_init[0], dtype=jnp.float64)
 
     # initial F and error vector series for DIIS
-    J = hartree_fn(dm)
-    Vxc = exchange_correlation_fn(dm)[1]
+    J = hartree_fn(dm_init)
+    Vxc = exchange_correlation_fn(dm_init)[1]
     F_init = Hcore + J + Vxc
-    errvec_init = errvec_sdf_fn(dm, F)
+    errvec_init = errvec_sdf_fn(dm_init, F_init)
     F_k = jnp.repeat(F_init[None, ...], diis_space, axis=0)
     errvec_k = jnp.repeat(errvec_init[None, ...], diis_space, axis=0)
 
@@ -124,11 +124,11 @@ def diis(v_ovlp, Hcore, dm_init,
         F = F_k[-1]
 
         # diagonalization
-        F1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), F, v)
+        F1 = jnp.einsum('pq,qr,rs->ps', v_ovlp.T.conjugate(), F, v_ovlp)
         w1, c1 = jnp.linalg.eigh(F1)
 
         # next molecular orbitals and density matrix
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
+        mo_coeff = jnp.dot(v_ovlp, c1) # (n_ao, n_mo)
         dm = density_matrix_fn(mo_coeff, w1) # (n_ao, n_ao)
 
         # hartree and exchange-correlation term
@@ -179,12 +179,12 @@ def diis(v_ovlp, Hcore, dm_init,
         _F = (1 - diis_damp) * _F + diis_damp * F_k[-1]
 
         # diagonalization
-        F1 = jnp.einsum('pq,qr,rs->ps', v.T.conjugate(), _F, v)
+        F1 = jnp.einsum('pq,qr,rs->ps', v_ovlp.T.conjugate(), _F, v_ovlp)
         w1, c1 = jnp.linalg.eigh(F1)
 
         # molecular orbitals and density matrix
-        mo_coeff = jnp.dot(v, c1) # (n_ao, n_mo)
-        dm = density_matrix(mo_coeff, w1) # (n_ao, n_ao)
+        mo_coeff = jnp.dot(v_ovlp, c1) # (n_ao, n_mo)
+        dm = density_matrix_fn(mo_coeff, w1) # (n_ao, n_ao)
 
         # hartree and exchange-correlation term
         J = hartree_fn(dm)
@@ -215,7 +215,7 @@ def diis(v_ovlp, Hcore, dm_init,
 
     _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, 
                                               (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
-    converged = not loop==max_cycle
+    converged = jnp.logical_not(loop==max_cycle)
 
     return mo_coeff, w1, E, converged
 
