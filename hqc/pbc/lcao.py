@@ -2,6 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from functools import partial
+from typing import Callable, Tuple
 from jax import vmap, grad, jit, jacfwd
 
 from hqc.pbc.scf import make_scf
@@ -11,13 +12,26 @@ from hqc.tools.excor import make_exchange_func, make_correlation_func
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
 
 
-def make_lcao(n, L, rs, basis='gth-szv', 
-              rcut=24, tol=1e-7, max_cycle=100, grid_length=0.12, 
-              diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0,
-              use_jit=True, dft=False, xc='lda,vwn',
-              smearing=False, smearing_method='fermi', smearing_sigma=0.,
-              search_method='newton', search_cycle=100, search_tol=1e-7,
-              gamma=True, mode="default"):
+def make_lcao(n: int, L: float, rs: float, basis: str,
+              rcut: float = 24, 
+              tol: float = 1e-7, 
+              max_cycle: int = 100, 
+              grid_length: float = 0.12,
+              diis: bool = True, 
+              diis_space: int = 8, 
+              diis_start_cycle: int = 1, 
+              diis_damp: float = 0.,
+              use_jit: bool = True,
+              dft: bool = False, 
+              xc: str = 'lda,vwn',
+              smearing: bool = False,
+              smearing_method: str = 'fermi',
+              smearing_sigma: float = 0.,
+              search_method: str = 'newton', 
+              search_cycle: int = 100, 
+              search_tol: float= 1e-7,
+              gamma: bool = True,
+              mode: str = "default") -> Callable:
     """
         Make PBC Hartree Fock function.
         INPUT:
@@ -756,7 +770,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
     scf = make_scf(diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, 
                    diis_damp=diis_damp, tol=tol, max_cycle=max_cycle)
 
-    def hf_gamma(xp):
+    def hf_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
         """
             PBC Hartree Fock. kpt = (0,0,0)
             INPUT:
@@ -805,7 +819,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
     
-    def hf_kpt(xp, kpt):
+    def hf_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
         """
             PBC Hartree Fock at kpt.
             INPUT:
@@ -856,7 +870,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def dft_gamma(xp):
+    def dft_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
         """
             PBC DFT. kpt = (0,0,0)
             INPUT:
@@ -903,7 +917,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def dft_kpt(xp, kpt):
+    def dft_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
         """
             PBC DFT at kpt.
             INPUT:
@@ -952,7 +966,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry
 
-    def hf_gamma_debug(xp):
+    def hf_gamma_debug(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float, float, float, float]:
         """
             'debug' mode function.
             PBC Hartree Fock. kpt = (0,0,0)
@@ -1015,7 +1029,7 @@ def make_lcao(n, L, rs, basis='gth-szv',
 
         return mo_coeff, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry
 
-    def hf_kpt_debug(xp, kpt):
+    def hf_kpt_debug(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float, float, float, float]:
         """
             'debug' mode function.
             PBC Hartree Fock at kpt.

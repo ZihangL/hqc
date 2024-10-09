@@ -3,16 +3,19 @@ import numpy as np
 import jax.numpy as jnp
 from hqc.basis.parse import parse_quant_num, parse_gto, normalize_gto_coeff
 
-def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
+def make_pbc_gto(basis: str, L: float, rcut: float = 24, 
+                 gamma: bool = True, lcao_xyz: bool = False):
     """
         Make PBC GTO orbitals function by using cartesian representation.
         Args:
             basis: basis name, eg:'gth-szv'.
             L: float, unit cell length. (Unit: Bohr)
+                Note: this L(in hqc.pbc.gto) = L * rs(in hqc.pbc.lcao)
             rcut: float, cutoff radius. (Unit: Bohr)
             gamma: bool, if True, return eval_pbc_ao(xp, xe) for gamma point only, 
                          else, return eval_pbc_ao_kpt(xp, xe, kpt) for a single k-point.
-            lcao_xyz: bool, return the function for cartesian GTO orbitals (True is designed only for lcao function).
+            lcao_xyz: bool, return the function for cartesian GTO orbitals.
+                Note: This is an internal parameter. True is designed only for hqc.pbc.lcao function.
         Returns:
             eval_pbc_gto: PBC gto orbitals function.
     """
@@ -320,7 +323,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
         """
         return jnp.exp(-alpha * x**2)
 
-    def eval_pbc_gaussian_power_x(x):
+    def eval_pbc_gaussian_power_x(x: float):
         """
             Evaluates PBC cartesian GTO orbitals centered at 0 for 
             one dimensional electron coordinate x.
@@ -351,7 +354,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
         pbc_gto_sph = jnp.einsum('ac,acs->s', pbc_gaussian_cart, alpha_coeff_gto_cart2sph)
         return pbc_gto_sph
 
-    def eval_pbc_ao(xp, xe):
+    def eval_pbc_ao(xp: jnp.ndarray, xe: jnp.ndarray):
         """
             Evaluates PBC GTO orbitals for several protons at one electron coordinate.
         Args:
@@ -365,7 +368,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
         """        
         return jax.vmap(eval_pbc_gto_sph)(xe[None, :]-xp).reshape(-1)
 
-    def eval_pbc_gaussian_power_x_kpt(x, kpt_x):
+    def eval_pbc_gaussian_power_x_kpt(x: float, kpt_x: float):
         """
             Evaluates PBC cartesian GTO orbitals centered at 0 for 
             one dimensional electron coordinate x.
@@ -400,7 +403,7 @@ def make_pbc_gto(basis, L, rcut=24, gamma=True, lcao_xyz=False):
         pbc_gto_sph_kpt = jnp.einsum('ac,acs->s', pbc_gaussian_cart_kpt, alpha_coeff_gto_cart2sph) # (n_gto_sph,), complex
         return pbc_gto_sph_kpt
 
-    def eval_pbc_ao_kpt(xp, xe, kpt):
+    def eval_pbc_ao_kpt(xp: jnp.ndarray, xe: jnp.ndarray, kpt: jnp.ndarray):
         """
             Evaluates PBC GTO orbitals for several protons at one electron coordinate.
         Args:

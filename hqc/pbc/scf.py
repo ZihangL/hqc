@@ -19,12 +19,12 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
                  These two functions have the same Interface.
     """
     def fixed_point_scf(v_ovlp, Hcore, dm_init, hartree_fn, exchange_correlation_fn, 
-                    density_matrix_fn, errvec_sdf_fn):
+                        density_matrix_fn, errvec_sdf_fn):
         """
             Fixed point iteration for SCF.
             Input:
                 v_ovlp: array of shape (n_ao, n_ao), orthonormal matrix of overlap matrix S
-                    V^{\dagger}SV = I
+                    V^{dagger}SV = I
                 Hcore: array of shape (n_ao, n_ao), core Hamiltonian matrix
                     Hcore = T + V
                 dm_init: array of shape (n_ao, n_ao), initial guess of density matrix
@@ -93,7 +93,7 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
             DIIS for SCF.
             Input:
                 v_ovlp: array of shape (n_ao, n_ao), orthonormal matrix of overlap matrix S
-                    V^{\dagger}SV = I
+                    V^{dagger}SV = I
                 Hcore: array of shape (n_ao, n_ao), core Hamiltonian matrix
                     Hcore = T + V
                 dm_init: array of shape (n_ao, n_ao), initial guess of density matrix

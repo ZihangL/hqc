@@ -1,9 +1,11 @@
 import jax
 import jax.numpy as jnp
+from typing import Callable, Tuple
 
 from hqc.pbc.gto import make_pbc_gto
 
-def make_slater(n, L, rs, basis='sto-3g', rcut=24, groundstate=True):
+def make_slater(n: int, L: float, rs: float, basis: str, 
+                rcut: float = 24, groundstate: bool = True) -> Callable:
     """
         Make a slater determinant function.
         Args:
@@ -17,7 +19,8 @@ def make_slater(n, L, rs, basis='sto-3g', rcut=24, groundstate=True):
     assert n % 2 == 0
     gto = make_pbc_gto(basis, L*rs, rcut=rcut)
     
-    def slater(xp, xe, mo_coeff, state_idx):
+    def slater(xp: jnp.ndarray, xe: jnp.ndarray, mo_coeff: jnp.ndarray, 
+               state_idx: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """
             logpsi, which is generally complex.
             Args:

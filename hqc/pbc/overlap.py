@@ -1,13 +1,19 @@
 import jax
 import numpy as np
 import jax.numpy as jnp
+from typing import Callable
 from functools import partial
 from jax import vmap, grad, jit, jacfwd
 
 from hqc.basis.parse import load_as_str, parse_quant_num, parse_gto, normalize_gto_coeff
 
 
-def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, remat=False):
+def make_overlap(n: int, L: float, rs: float, 
+                 basis: str, 
+                 rcut: float = 24, 
+                 gamma: bool = True, 
+                 use_jit: bool = True, 
+                 remat: bool = False) -> Callable:
     """
         Make the overlap function for a periodic system.
         Inputs:
@@ -279,7 +285,7 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
     else:
         eval_overlap_kpt_noreshape = vmap(vmap(_make_overlap(), (0, None, None), 0), (None, 0, None), 2)
 
-    def overlap(xp):
+    def overlap(xp: jnp.ndarray) -> jnp.ndarray:
         """
             Evaluate overlap matrix for a single configuration at gamma point.
             Args:
@@ -290,7 +296,7 @@ def make_overlap(n, L, rs, basis='gth-dzv', rcut=24, gamma=True, use_jit=True, r
         xp *= rs
         return eval_overlap_noreshape(xp, xp).reshape(n_ao, n_ao)
 
-    def overlap_kpt(xp, kpt):
+    def overlap_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> jnp.ndarray:
         """
             Evaluate overlap matrix for a single configuration at k point.
             Args:
