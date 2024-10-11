@@ -209,8 +209,9 @@ def lcao_test(dft, diis, smearing, gamma):
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
-        print("mo_coeff:\n", mo_coeff)
-        print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        # print("mo_coeff:\n", mo_coeff)
+        # print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        print("max diff between mo_coeff and pyscf_mo_coeff:", jnp.max(mo_coeff-mo_coeff_pyscf))
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
         print("same mo_coeff")
 
