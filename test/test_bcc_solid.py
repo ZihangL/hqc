@@ -102,7 +102,6 @@ def test_bcc_solid_hf_mcmc():
     smearing = False
     sigma = 0.0 # smearing parameter 
     perturbation = 0.1 # perturbation strength for atom position
-    max_cycle = 100
     gamma = True
     batchsize = 256
     mc_steps = 400
@@ -165,9 +164,60 @@ def test_bcc_solid_hf_mcmc():
     print("therm_steps:", therm_steps)
     print("sample_steps:", sample_steps)
     
-    vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma, max_cycle,
+    vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma,
+                  batchsize, mc_steps, mc_width, therm_steps, sample_steps)
+
+def test_bcc_solid_hf_mcmc_kpt():
+    dim = 3
+    rs = 1.31
+    basis = 'gth-dzv'
+    rcut = 24
+    grid_length = 0.12
+    smearing = False
+    sigma = 0.0 # smearing parameter 
+    perturbation = 0.1 # perturbation strength for atom position
+    gamma = False
+    batchsize = 256
+    mc_steps = 400
+    mc_width = 0.06
+    therm_steps = 5
+    sample_steps = 10
+
+    # bcc crystal
+    xp = make_atoms([2, 2, 2])
+    n = xp.shape[0]
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    xp += jax.random.normal(key, (n, dim)) * perturbation
+    xp = xp - L * jnp.floor(xp/L)
+
+    key = jax.random.PRNGKey(43)
+    kpt = jax.random.uniform(key, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
+
+    print("\n============= begin test =============")
+    print("n:", n)
+    print("rs:", rs)
+    print("L:", L)
+    print("basis:", basis)
+    print("rcut:", rcut)
+    print("grid_length:", grid_length)
+    print("smearing:", smearing)
+    print("perturbation:", perturbation)
+    print("xp:\n", xp)
+    print("gamma:", gamma)
+    if not gamma:
+        print("kpt:", kpt)
+    print("batchsize:", batchsize)
+    print("mc_steps:", mc_steps)
+    print("mc_width:", mc_width)
+    print("therm_steps:", therm_steps)
+    print("sample_steps:", sample_steps)
+    
+    vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma,
                   batchsize, mc_steps, mc_width, therm_steps, sample_steps)
 
 if __name__=='__main__':
-    #test_bcc_solid_hf()
-    test_bcc_solid_hf_mcmc()
+    # test_bcc_solid_hf()
+    # test_bcc_solid_hf_mcmc()
+    test_bcc_solid_hf_mcmc_kpt()

@@ -1101,6 +1101,10 @@ def make_lcao(n: int, L: float, rs: float, basis: str,
             lcao = hf_gamma_debug
         else:
             lcao = hf_kpt_debug
+        if use_jit:
+            return jit(lcao)
+        else:
+            return lcao
     elif mode == 'default':
         pass
     else:

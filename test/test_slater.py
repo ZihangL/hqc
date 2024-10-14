@@ -13,6 +13,8 @@ from hqc.pbc.slater import make_slater
 from tools.vmc import sample_x_mcmc
 from tools.observables import observables
 from tools.logpsi import make_logpsi_hf, make_logpsi2, make_logpsi_grad_laplacian
+from tools.logpsi import make_logpsi_hf_kpt, make_logpsi2_kpt, make_logpsi_grad_laplacian_kpt
+
 
 def vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma, 
                   batchsize, mc_steps, mc_width, therm_steps, sample_steps):
@@ -73,17 +75,25 @@ def vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma,
     print("vep_hf per atom (Ry):", vep_hf/n)
     print("vee_hf per atom (Ry):", vee_hf/n)
 
-    hf_orbitals = make_slater(n, L, rs, basis=basis, rcut=rcut, groundstate=True)
+    hf_orbitals = make_slater(n, L, rs, basis=basis, rcut=rcut, groundstate=True, gamma=gamma)
 
-    logpsi = make_logpsi_hf(hf_orbitals)
-    logpsi2 = make_logpsi2(logpsi)
-    logpsi_grad_laplacian = make_logpsi_grad_laplacian(logpsi)
+    if gamma:
+        logpsi = make_logpsi_hf(hf_orbitals)
+        logpsi2 = make_logpsi2(logpsi)
+        logpsi_grad_laplacian = make_logpsi_grad_laplacian(logpsi)
+    else:
+        logpsi_kpt = make_logpsi_hf_kpt(hf_orbitals)
+        logpsi2_kpt = make_logpsi2_kpt(logpsi_kpt)
+        logpsi_grad_laplacian_kpt = make_logpsi_grad_laplacian_kpt(logpsi_kpt)
+        logpsi2 = lambda x, s, mo_coeff: logpsi2_kpt(x, s, mo_coeff, kpoint)
+        logpsi_grad_laplacian = lambda x, s, mo_coeff: logpsi_grad_laplacian_kpt(x, s, mo_coeff, kpoint)
 
     key = jax.random.PRNGKey(42)
     xe = jax.random.uniform(key, (batchsize, n, 3), minval=0., maxval=L)
 
     for step in range(therm_steps):
         key, xe, acc = sample_x_mcmc(key, xp, xe, logpsi2, mo_coeff, mc_steps, mc_width, L)
+        print("therm step:", step, "acc:", acc)
 
     e_mean = np.zeros(sample_steps)
     e_err = np.zeros(sample_steps)
