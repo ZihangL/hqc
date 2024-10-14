@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import itertools
 from hqc.pbc.lcao import make_lcao
-from test_slater import test_slater_hf
+from test_slater import vmc_slater_hf
 
 from test_pbc_lcao import pyscf_dft, pyscf_hf
 jax.config.update("jax_enable_x64", True)
@@ -102,8 +102,14 @@ def test_bcc_solid_hf_mcmc():
     smearing = False
     sigma = 0.0 # smearing parameter 
     perturbation = 0.1 # perturbation strength for atom position
-    max_cycle = 50
-    
+    max_cycle = 100
+    gamma = True
+    batchsize = 256
+    mc_steps = 400
+    mc_width = 0.06
+    therm_steps = 5
+    sample_steps = 10
+
     # bcc crystal
     xp = make_atoms([2, 2, 2])
     n = xp.shape[0]
@@ -112,6 +118,9 @@ def test_bcc_solid_hf_mcmc():
     key = jax.random.PRNGKey(42)
     xp += jax.random.normal(key, (n, dim)) * perturbation
     xp = xp - L * jnp.floor(xp/L)
+
+    key = jax.random.PRNGKey(43)
+    kpt = jax.random.uniform(key, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
 
     # uniform
     #xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
@@ -147,8 +156,17 @@ def test_bcc_solid_hf_mcmc():
     print("smearing:", smearing)
     print("perturbation:", perturbation)
     print("xp:\n", xp)
-
-    test_slater_hf(xp, rs, basis, rcut, grid_length, smearing, sigma, max_cycle)
+    print("gamma:", gamma)
+    if not gamma:
+        print("kpt:", kpt)
+    print("batchsize:", batchsize)
+    print("mc_steps:", mc_steps)
+    print("mc_width:", mc_width)
+    print("therm_steps:", therm_steps)
+    print("sample_steps:", sample_steps)
+    
+    vmc_slater_hf(xp, rs, basis, kpt, rcut, grid_length, smearing, sigma, gamma, max_cycle,
+                  batchsize, mc_steps, mc_width, therm_steps, sample_steps)
 
 if __name__=='__main__':
     #test_bcc_solid_hf()

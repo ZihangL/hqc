@@ -19,7 +19,7 @@ smearing_sigma = 0.1
 key = jax.random.PRNGKey(42)
 key_p, key_kpt = jax.random.split(key)
 xp = jax.random.uniform(key_p, (n, 3), minval=0., maxval=L)
-kpt = jax.random.uniform(key_kpt, (3,))
+kpt = jax.random.uniform(key_kpt, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
 
 
 def pyscf_hf(n, L, rs, sigma, xp, basis, kpt, hf0=False, smearing=False, smearing_method='fermi'):
