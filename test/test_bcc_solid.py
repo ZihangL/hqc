@@ -34,9 +34,13 @@ def test_bcc_solid_hf():
     smearing = False
     sigma = 0.0 # smearing parameter 
     perturbation = 0.0 # perturbation strength for atom position
-    max_cycle = 50
+    tol = 1e-10
+    max_cycle = 1000
     gamma = True
-    
+    diis_space = 8
+    diis_start_cycle = 1
+    diis_damp = 0.0
+
     # bcc crystal
     xp = make_atoms([2, 2, 2]) 
     n = xp.shape[0]
@@ -62,14 +66,21 @@ def test_bcc_solid_hf():
     print("basis_set:", basis_set)
     print("rcut:", rcut)
     print("grid_length:", grid_length)
+    print("tol:", tol)
+    print("max_cycle:", max_cycle)
+    print("diis_space:", diis_space)
+    print("diis_start_cycle:", diis_start_cycle)
+    print("diis_damp:", diis_damp)
     print("hf:", not dft)
     if dft:
         print("xc:", xc)
     print("smearing:", smearing)
-    print("perturbation:", perturbation)
+    if smearing:
+        print("smearing sigma:", sigma)
     print("gamma:", gamma)
     if not gamma:
         print("kpt:", kpt)
+    print("perturbation:", perturbation)
     print("xp:\n", xp)
 
     for basis in basis_set:
@@ -79,7 +90,9 @@ def test_bcc_solid_hf():
         else:
             mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, kpt, smearing=smearing)
 
-        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle, gamma=gamma)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, 
+                         diis_space=diis_space, diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
+                         tol=tol, max_cycle=max_cycle, gamma=gamma)
         if gamma:
             mo_coeff, bands, E = lcao(xp)
         else:
@@ -106,7 +119,6 @@ def test_bcc_solid_hf():
         #print("dm:\n", dm)
         #print("dm_pyscf:\n", dm_pyscf)
         #print("diff:\n", dm - dm_pyscf)
-
 
 def test_bcc_solid_hf_mcmc():
     dim = 3
@@ -234,5 +246,6 @@ def test_bcc_solid_hf_mcmc_kpt():
 
 if __name__=='__main__':
     test_bcc_solid_hf()
+    # test_bcc_solid_hf_kpt()
     # test_bcc_solid_hf_mcmc()
     # test_bcc_solid_hf_mcmc_kpt()
