@@ -2,6 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from functools import partial
+from typing import Callable
 
 from hqc.pbc.lcao import make_lcao
 from hqc.pbc.potential import potential_energy_pp
@@ -29,6 +30,7 @@ def make_pes(n: int, L: float, rs: float, basis: str,
              kappa: float = 10) -> Callable:
     """
         Make Potential Energy Surface (PES) function for a periodic box.
+            E = k + vep + vee + vpp, Unit: Ry.
         INPUT:
             n: int, number of hydrogen atoms in unit cell.
             L: float, side length of unit cell, unit: rs.
@@ -69,9 +71,11 @@ def make_pes(n: int, L: float, rs: float, basis: str,
                      search_method=search_method, search_cycle=search_cycle, 
                      search_tol=search_tol, gamma=gamma)
 
-    pes_gamma = lambda xp: lcao(xp)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+    def pes_gamma(xp: np.ndarray) -> float:
+        return lcao(xp)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
 
-    pes_kpt = lambda xp, kpt: lcao(xp, kpt)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+    def pes_kpt(xp: np.ndarray, kpt: np.ndarray) -> float:
+        return lcao(xp, kpt)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
 
     if gamma:
         pes = pes_gamma

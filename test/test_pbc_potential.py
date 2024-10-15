@@ -4,7 +4,6 @@ import jax.numpy as jnp
 from pyscf.pbc import gto, scf
 jax.config.update("jax_enable_x64", True)
 
-from hqc.pbc.lcao import make_lcao
 from hqc.basis.parse import load_as_str
 from hqc.pbc.potential import potential_energy_pp
 
