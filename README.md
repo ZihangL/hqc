@@ -100,7 +100,7 @@ H DZV-GTH
 
 ## Release note
 >### hqc 0.1.9
->Add `hqc.pbc.pes` to calculate *potential energy surface (PES)*.
+>Add `hqc.pbc.pes` to calculate *potential energy surface (PES)*.  
 >Add `hqc.pbc.potential` to calculate vpp.
 
 >### hqc 0.1.8
