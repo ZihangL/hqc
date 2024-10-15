@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 
-from tools.potential import kpoints, Madelung, potential_energy
+from hqc.pbc.potential import kpoints, Madelung, potential_energy
 
 @partial(jax.vmap, in_axes=(None, 0, None, None, None, None), out_axes=(0, 0, 0, 0, 0))
 def observables(xp, xe, mo_coeff, n, rs, logpsi_grad_laplacian):

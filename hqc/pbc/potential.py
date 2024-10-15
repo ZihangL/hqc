@@ -100,6 +100,35 @@ def potential_energy(x, kappa, G, L, rs):
 
     return 2*rs/L*v_pp , 2*rs/L * v_ep , 2*rs/L*v_ee
 
+def potential_energy_pp(xp, L, rs, kappa=10, Gmax=15):
+    """
+        Potential energy for a periodic box of size L, only the nontrivial
+    coordinate-dependent part. Unit: Ry/rs^2.
+        To account for the Madelung part `Vconst` returned by the function `Madelung`,
+    add the term n*rs/L*Vconst. See also the docstring for function `psi`.
+
+    Inputs: 
+        xp: (n, dim) proton coordinates
+        L: float, side length of unit cell, unit: rs.
+        rs: float, Wigner-Seitz radius
+        kappa: float, screening parameter
+        Gmax: int, cutoff of G-vectors
+    Returns:
+        v_pp: float, potential energy of protons, unit: Ry.
+    """
+    n, dim = xp.shape
+    xp -= L * jnp.floor(xp/L)
+    i, j = jnp.triu_indices(n, k=1)
+    rij = ( (xp[:, None, :] - xp)[i, j] )/L
+    rij -= jnp.rint(rij)
+
+    G = kpoints(3, Gmax)
+    v = jax.vmap(psi, (0, None, None), 0)(rij, kappa, G)
+    v_pp = jnp.sum(v)
+    Vconst = n * Madelung(3, kappa, G)/L/rs
+
+    return 2*v_pp/L/rs + Vconst
+
 if __name__ == '__main__':
     n = 14
     rs = 1.31
@@ -126,5 +155,8 @@ if __name__ == '__main__':
     vpp = vpp/rs**2
     vep = vep/rs**2
     vee = vee/rs**2
-    print(vpp, vep, vee)
+    print("potential_energy:", vpp, vep, vee)
+
+    vpp = potential_energy_pp(xp, L, rs)
+    print("potential_energy_pp:", vpp)
     
