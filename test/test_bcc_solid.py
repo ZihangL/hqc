@@ -35,6 +35,7 @@ def test_bcc_solid_hf():
     sigma = 0.0 # smearing parameter 
     perturbation = 0.0 # perturbation strength for atom position
     max_cycle = 50
+    gamma = True
     
     # bcc crystal
     xp = make_atoms([2, 2, 2]) 
@@ -44,6 +45,12 @@ def test_bcc_solid_hf():
     key = jax.random.PRNGKey(42)
     xp += jax.random.normal(key, (n, dim)) * perturbation
     xp = xp - L * jnp.floor(xp/L)
+
+    key = jax.random.PRNGKey(43)
+    if gamma:
+        kpt = jnp.zeros(3)
+    else:
+        kpt = jax.random.uniform(key, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
 
     # uniform
     # xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
@@ -56,25 +63,33 @@ def test_bcc_solid_hf():
     print("rcut:", rcut)
     print("grid_length:", grid_length)
     print("hf:", not dft)
+    if dft:
+        print("xc:", xc)
     print("smearing:", smearing)
     print("perturbation:", perturbation)
+    print("gamma:", gamma)
+    if not gamma:
+        print("kpt:", kpt)
     print("xp:\n", xp)
 
     for basis in basis_set:
         print("\n==========", basis, "==========")
         if dft: 
-            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, xc=xc, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc=xc, smearing=smearing)
         else:
-            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, smearing=smearing)
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, kpt, smearing=smearing)
 
-        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle)
-        mo_coeff, bands, E = lcao(xp)
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, max_cycle = max_cycle, gamma=gamma)
+        if gamma:
+            mo_coeff, bands, E = lcao(xp)
+        else:
+            mo_coeff, bands, E = lcao(xp, kpt)
 
         print ("E", E)
         print ("E_pyscf", E_pyscf)
 
-        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]))
-        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]))
+        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
+        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
 
         print ("coef diff", np.abs(mo_coeff - mo_coeff_pyscf).max())
         print ("band diff", np.abs(bands - bands_pyscf).max())
@@ -218,6 +233,6 @@ def test_bcc_solid_hf_mcmc_kpt():
                   batchsize, mc_steps, mc_width, therm_steps, sample_steps)
 
 if __name__=='__main__':
-    # test_bcc_solid_hf()
+    test_bcc_solid_hf()
     # test_bcc_solid_hf_mcmc()
-    test_bcc_solid_hf_mcmc_kpt()
+    # test_bcc_solid_hf_mcmc_kpt()
