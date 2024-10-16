@@ -37,6 +37,7 @@ def test_bcc_solid_hf():
     tol = 1e-10
     max_cycle = 1000
     gamma = True
+    diis = False
     diis_space = 8
     diis_start_cycle = 1
     diis_damp = 0.0
@@ -68,6 +69,7 @@ def test_bcc_solid_hf():
     print("grid_length:", grid_length)
     print("tol:", tol)
     print("max_cycle:", max_cycle)
+    print("diis:", diis)
     print("diis_space:", diis_space)
     print("diis_start_cycle:", diis_start_cycle)
     print("diis_damp:", diis_damp)
@@ -91,7 +93,109 @@ def test_bcc_solid_hf():
             mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, kpt, smearing=smearing)
 
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, 
-                         diis_space=diis_space, diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
+                         diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
+                         tol=tol, max_cycle=max_cycle, gamma=gamma)
+        if gamma:
+            mo_coeff, bands, E = lcao(xp)
+        else:
+            mo_coeff, bands, E = lcao(xp, kpt)
+
+        print ("E", E)
+        print ("E_pyscf", E_pyscf)
+
+        mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
+        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
+
+        print ("coef diff", np.abs(mo_coeff - mo_coeff_pyscf).max())
+        print ("band diff", np.abs(bands - bands_pyscf).max())
+
+        print("bands:\n", bands)
+        print("bands_pyscf:\n", bands_pyscf)
+
+        dm = mo_coeff[:, :n//2] @ (mo_coeff[:, :n//2].T)
+        dm_pyscf = mo_coeff_pyscf[:, :n//2] @ (mo_coeff_pyscf[:, :n//2].T)
+
+        print ("dm diff", np.abs(dm - dm_pyscf).max())
+        
+        #np.set_printoptions(suppress=True)
+        #print("dm:\n", dm)
+        #print("dm_pyscf:\n", dm_pyscf)
+        #print("diff:\n", dm - dm_pyscf)
+
+def test_bcc_solid_hf_kpt():
+    dim = 3
+    rs = 1.31
+    basis_set = ['gth-szv'] # , 'gth-dzv', 'gth-dzvp']
+    rcut = 24
+    grid_length = 0.12
+    dft = False
+    xc = "lda,vwn"
+    smearing = False
+    sigma = 0.0 # smearing parameter 
+    perturbation = 0.0 # perturbation strength for atom position
+    tol = 1e-7
+    max_cycle = 100
+    gamma = False
+    diis = True
+    diis_space = 8
+    diis_start_cycle = 1
+    diis_damp = 0.0
+
+    # bcc crystal
+    xp = make_atoms([2, 2, 2]) 
+    n = xp.shape[0]
+    L = (4/3*jnp.pi*n)**(1/3)
+
+    key = jax.random.PRNGKey(42)
+    xp += jax.random.normal(key, (n, dim)) * perturbation
+    xp = xp - L * jnp.floor(xp/L)
+
+    key = jax.random.PRNGKey(43)
+    if gamma:
+        kpt = jnp.zeros(3)
+    else:
+        kpt = jax.random.uniform(key, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
+
+    # Baldereschi
+    kpt = jnp.ones(3)*jnp.pi/L/rs/2
+
+    # uniform
+    # xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+
+    print("\n============= begin test =============")
+    print("n:", n)
+    print("rs:", rs)
+    print("L:", L)
+    print("basis_set:", basis_set)
+    print("rcut:", rcut)
+    print("grid_length:", grid_length)
+    print("tol:", tol)
+    print("max_cycle:", max_cycle)
+    print("diis:", diis)
+    print("diis_space:", diis_space)
+    print("diis_start_cycle:", diis_start_cycle)
+    print("diis_damp:", diis_damp)
+    print("hf:", not dft)
+    if dft:
+        print("xc:", xc)
+    print("smearing:", smearing)
+    if smearing:
+        print("smearing sigma:", sigma)
+    print("gamma:", gamma)
+    if not gamma:
+        print("kpt:", kpt)
+    print("perturbation:", perturbation)
+    print("xp:\n", xp)
+
+    for basis in basis_set:
+        print("\n==========", basis, "==========")
+        if dft: 
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc=xc, smearing=smearing)
+        else:
+            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, sigma, xp, basis, kpt, smearing=smearing)
+
+        lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, dft=dft, smearing=smearing, smearing_sigma=sigma, 
+                         diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, diis_damp=diis_damp, 
                          tol=tol, max_cycle=max_cycle, gamma=gamma)
         if gamma:
             mo_coeff, bands, E = lcao(xp)
@@ -245,7 +349,7 @@ def test_bcc_solid_hf_mcmc_kpt():
                   batchsize, mc_steps, mc_width, therm_steps, sample_steps)
 
 if __name__=='__main__':
-    test_bcc_solid_hf()
-    # test_bcc_solid_hf_kpt()
+    # test_bcc_solid_hf()
+    test_bcc_solid_hf_kpt()
     # test_bcc_solid_hf_mcmc()
     # test_bcc_solid_hf_mcmc_kpt()
