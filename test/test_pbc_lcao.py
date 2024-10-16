@@ -19,7 +19,7 @@ smearing_sigma = 0.1
 key = jax.random.PRNGKey(42)
 key_p, key_kpt = jax.random.split(key)
 xp = jax.random.uniform(key_p, (n, 3), minval=0., maxval=L)
-kpt = jax.random.uniform(key_kpt, (3,))
+kpt = jax.random.uniform(key_kpt, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
 
 
 def pyscf_hf(n, L, rs, sigma, xp, basis, kpt, hf0=False, smearing=False, smearing_method='fermi'):
@@ -51,6 +51,7 @@ def pyscf_hf(n, L, rs, sigma, xp, basis, kpt, hf0=False, smearing=False, smearin
         cell.atom.append(['H', tuple(xp[ie])])
     cell.spin = 0
     cell.basis = {'H':gto.parse(load_as_str('H', basis), optimize=True)}
+    cell.symmetry = False
     cell.build()
 
     kpt = [kpt.tolist()]
@@ -208,8 +209,9 @@ def lcao_test(dft, diis, smearing, gamma):
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
         mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
-        print("mo_coeff:\n", mo_coeff)
-        print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        # print("mo_coeff:\n", mo_coeff)
+        # print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
+        print("max diff between mo_coeff and pyscf_mo_coeff:", jnp.max(mo_coeff-mo_coeff_pyscf))
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
         print("same mo_coeff")
 
