@@ -2,7 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from functools import partial
-from typing import Callable
+from typing import Callable, Tuple
 
 from hqc.pbc.solver import make_solver
 from hqc.pbc.potential import potential_energy_pp
@@ -27,7 +27,8 @@ def make_pes(n: int, L: float, rs: float, basis: str,
              search_tol: float= 1e-7,
              gamma: bool = True,
              Gmax: int = 15,
-             kappa: float = 10) -> Callable:
+             kappa: float = 10,
+             mode: str = 'default') -> Callable:
     """
         Make Potential Energy Surface (PES) function for a periodic box.
             E = k + vep + vee + vpp, Unit: Ry.
@@ -56,6 +57,9 @@ def make_pes(n: int, L: float, rs: float, basis: str,
                          else, return pes(xp, kpt) for a single k-point.
             Gmax: int, the cutoff of G-vectors.
             kappa: float, the screening parameter.
+            mode: str, 'default' or 'dev'.
+                    in 'default' mode, pes(xp) returns the total energy.
+                    in 'dev' mode, pes(xp) returns the total energy and its components. 
         OUTPUT:
             pes: pes function.
                 Inputs: xp: (n, dim) proton coordinates.
@@ -72,15 +76,77 @@ def make_pes(n: int, L: float, rs: float, basis: str,
                          search_tol=search_tol, gamma=gamma)
 
     def pes_gamma(xp: np.ndarray) -> float:
+        """
+            Calculate the total energy for a given proton configuration at gamma point.
+            INPUT:
+                xp: (n, dim) proton coordinates.
+            OUTPUT:
+                e: float, total energy e = k+vep+vee+vpp, unit: Ry.
+        """
         return solver(xp)[3] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
 
     def pes_kpt(xp: np.ndarray, kpt: np.ndarray) -> float:
+        """
+            Calculate the total energy for a given proton configuration at a single k-point.
+            INPUT:
+                xp: (n, dim) proton coordinates.
+                kpt: (3,) k-point coordinates.
+            OUTPUT:
+                e: float, total energy e = k+vep+vee+vpp, unit: Ry.
+        """
         return solver(xp, kpt)[3] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+    
+    def pes_dev_gamma(xp: np.ndarray) -> Tuple[float, float, float, float, float, float, bool]:
+        """
+            Calculate the total energy and its components for a given proton configuration at gamma point.
+            INPUT:
+                xp: (n, dim) proton coordinates.
+            OUTPUT:
+                E: float, total energy, unit: Ry.
+                Ki: float, electron kinetic energy, unit: Ry.
+                Vep: float, electron-proton interaction energy, unit: Ry.
+                Vee: float, electron-electron interaction energy, unit: Ry.
+                Vpp: float, proton-proton interaction energy, unit: Ry.
+                Se: float, electron entropy.
+                converged: bool, if True, the calculation is converged.
+        """
+        _, _, _, E, Ki, Vep, Vee, Se, converged = solver(xp)
+        Vpp = potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+        return E, Ki, Vep, Vee, Vpp, Se, converged
+
+    def pes_dev_kpt(xp: np.ndarray, kpt: np.ndarray) -> Tuple[float, float, float, float, float, float, bool]:
+        """
+            Calculate the total energy and its components for a given proton configuration at a single k-point.
+            INPUT:
+                xp: (n, dim) proton coordinates.
+                kpt: (3,) k-point coordinates.
+            OUTPUT:
+                E: float, total energy, unit: Ry.
+                Ki: float, electron kinetic energy, unit: Ry.
+                Vep: float, electron-proton interaction energy, unit: Ry.
+                Vee: float, electron-electron interaction energy, unit: Ry.
+                Vpp: float, proton-proton interaction energy, unit: Ry.
+                Se: float, electron entropy.
+                converged: bool, if True, the calculation is converged.
+        """
+        _, _, _, E, Ki, Vep, Vee, Se, converged = solver(xp, kpt)
+        Vpp = potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+        return E, Ki, Vep, Vee, Vpp, Se, converged
 
     if gamma:
-        pes = pes_gamma
+        if mode == 'dev':
+            pes = pes_dev_gamma
+        elif mode == 'default':
+            pes = pes_gamma
+        else:
+            raise ValueError(f"Invalid mode: {mode}.")
     else:
-        pes = pes_kpt
+        if mode == 'dev':
+            pes = pes_dev_kpt
+        elif mode == 'default':
+            pes = pes_kpt
+        else:
+            raise ValueError(f"Invalid mode: {mode}.")
 
     if use_jit:
         return jax.jit(pes)
