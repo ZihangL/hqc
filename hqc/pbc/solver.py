@@ -777,7 +777,7 @@ def make_solver(n: int, L: float, rs: float, basis: str,
     scf = make_scf(diis=diis, diis_space=diis_space, diis_start_cycle=diis_start_cycle, 
                    diis_damp=diis_damp, tol=tol, max_cycle=max_cycle)
 
-    def hf_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+    def hf_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, float, float, float, float, float, bool]:
         """
             PBC Hartree Fock. kpt = (0,0,0)
             INPUT:
@@ -835,7 +835,7 @@ def make_solver(n: int, L: float, rs: float, basis: str,
 
         return mo_coeff, dm, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry, Se, converged
     
-    def hf_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+    def hf_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, float, float, float, float, float, bool]:
         """
             PBC Hartree Fock at kpt.
             INPUT:
@@ -899,7 +899,7 @@ def make_solver(n: int, L: float, rs: float, basis: str,
 
         return mo_coeff, dm, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry, Se, converged
 
-    def dft_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+    def dft_gamma(xp: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, float, float, float, float, float, bool]:
         """
             PBC DFT. kpt = (0,0,0)
             INPUT:
@@ -955,7 +955,7 @@ def make_solver(n: int, L: float, rs: float, basis: str,
 
         return mo_coeff, dm, w1 * Ry, E * Ry, Ki * Ry, Vep * Ry, Vee * Ry, Se, converged
 
-    def dft_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+    def dft_kpt(xp: jnp.ndarray, kpt: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, float, float, float, float, float, bool]:
         """
             PBC DFT at kpt.
             INPUT:
