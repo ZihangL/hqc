@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from functools import partial
 from typing import Callable
 
-from hqc.pbc.lcao import make_lcao
+from hqc.pbc.solver import make_solver
 from hqc.pbc.potential import potential_energy_pp
 
 def make_pes(n: int, L: float, rs: float, basis: str,
@@ -63,19 +63,19 @@ def make_pes(n: int, L: float, rs: float, basis: str,
                 Outputs: pes: float, total energy e = k+vep+vee+vpp, unit: Ry.
     """
 
-    lcao = make_lcao(n, L, rs, basis, rcut=rcut, tol=tol, max_cycle=max_cycle, 
-                     grid_length=grid_length, diis=diis, diis_space=diis_space, 
-                     diis_start_cycle=diis_start_cycle, diis_damp=diis_damp,
-                     use_jit=use_jit, dft=dft, xc=xc, smearing=smearing, 
-                     smearing_method=smearing_method, smearing_sigma=smearing_sigma,
-                     search_method=search_method, search_cycle=search_cycle, 
-                     search_tol=search_tol, gamma=gamma)
+    solver = make_solver(n, L, rs, basis, rcut=rcut, tol=tol, max_cycle=max_cycle, 
+                         grid_length=grid_length, diis=diis, diis_space=diis_space, 
+                         diis_start_cycle=diis_start_cycle, diis_damp=diis_damp,
+                         use_jit=use_jit, dft=dft, xc=xc, smearing=smearing, 
+                         smearing_method=smearing_method, smearing_sigma=smearing_sigma,
+                         search_method=search_method, search_cycle=search_cycle, 
+                         search_tol=search_tol, gamma=gamma)
 
     def pes_gamma(xp: np.ndarray) -> float:
-        return lcao(xp)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+        return solver(xp)[3] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
 
     def pes_kpt(xp: np.ndarray, kpt: np.ndarray) -> float:
-        return lcao(xp, kpt)[2] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
+        return solver(xp, kpt)[3] + potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
 
     if gamma:
         pes = pes_gamma
