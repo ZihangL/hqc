@@ -64,11 +64,11 @@ def make_lcao(n: int, L: float, rs: float, basis: str,
                          search_tol=search_tol, gamma=gamma)
 
     def lcao_gamma(xp: np.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
-        mo_coeff, _, bands, E, ... = solver(xp)
+        mo_coeff, _, bands, E, _, _, _, _, _ = solver(xp)
         return mo_coeff, bands, E
 
     def lcao_kpt(xp: np.ndarray, kpt: np.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
-        mo_coeff, _, bands, E, ... = solver(xp, kpt)
+        mo_coeff, _, bands, E, _, _, _, _, _ = solver(xp, kpt)
         return mo_coeff, bands, E
 
     if gamma:
