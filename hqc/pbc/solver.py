@@ -679,7 +679,8 @@ def make_solver(n: int, L: float, rs: float, basis: str,
             Returns:
                 entropy: float, entropy.
         """
-        entropy = -2*jnp.sum(jnp.where(occ/2 > epsilon, occ/2*jnp.log(occ/2), 0))
+        entropy = -2*(jnp.sum(jnp.where(occ/2 > epsilon, occ/2*jnp.log(occ/2), 0)) + \
+                      jnp.sum(jnp.where(1-occ/2 > epsilon, (1-occ/2)*jnp.log(1-occ/2), 0)))
         return entropy
 
     def hartree(eris, dm):
