@@ -64,10 +64,32 @@ def make_lcao(n: int, L: float, rs: float, basis: str,
                          search_tol=search_tol, gamma=gamma)
 
     def lcao_gamma(xp: np.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+        """
+            LCAO for gamma point.
+            INPUT:
+                xp: array of shape (n, dim), position of protons in rs unit.
+                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
+            OUTPUT:
+                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+        """
         mo_coeff, _, bands, E, _, _, _, _, _ = solver(xp)
         return mo_coeff, bands, E
 
     def lcao_kpt(xp: np.ndarray, kpt: np.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, float]:
+        """
+            LCAO for k-point.
+            INPUT:
+                xp: array of shape (n, dim), position of protons in rs unit.
+                    Warining: xp * rs is in Bohr unit, xp is in rs unit.
+                kpt: array of shape (3,), k-point. (Unit: 1/Bohr)
+                    1BZ: (-pi/L/rs, pi/L/rs)
+            OUTPUT:
+                mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
+                E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+        """
         mo_coeff, _, bands, E, _, _, _, _, _ = solver(xp, kpt)
         return mo_coeff, bands, E
 
