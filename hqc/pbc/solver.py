@@ -786,8 +786,14 @@ def make_solver(n: int, L: float, rs: float, basis: str,
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                dm: array of shape (n_ao, n_ao), density matrix.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
                 E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+                Ki: float, kinetic energy, Unit: Rydberg.
+                Vep: float, electron-proton potential energy, Unit: Rydberg.
+                Vee: float, electron-electron potential energy, Unit: Rydberg.
+                Se: float, entropy.
+                converged: bool, whether the calculation is converged.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -846,8 +852,14 @@ def make_solver(n: int, L: float, rs: float, basis: str,
                     1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                dm: array of shape (n_ao, n_ao), density matrix.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
                 E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+                Ki: float, kinetic energy, Unit: Rydberg.
+                Vep: float, electron-proton potential energy, Unit: Rydberg.
+                Vee: float, electron-electron potential energy, Unit: Rydberg.
+                Se: float, entropy.
+                converged: bool, whether the calculation is converged
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -908,8 +920,14 @@ def make_solver(n: int, L: float, rs: float, basis: str,
                     Warining: xp * rs is in Bohr unit, xp is in rs unit.
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                dm: array of shape (n_ao, n_ao), density matrix.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
                 E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+                Ki: float, kinetic energy, Unit: Rydberg.
+                Vep: float, electron-proton potential energy, Unit: Rydberg.
+                Vee: float, electron-electron potential energy, Unit: Rydberg.
+                Se: float, entropy.
+                converged: bool, whether the calculation is converged.
         """
         assert xp.shape[0] == n
         xp *= rs
@@ -966,8 +984,14 @@ def make_solver(n: int, L: float, rs: float, basis: str,
                     1BZ: (-pi/L/rs, pi/L/rs)
             OUTPUT:
                 mo_coeff: array of shape (n_ao, n_mo), molecular orbital coefficients.
+                dm: array of shape (n_ao, n_ao), density matrix.
                 bands: array of shape (n_mo,), orbital energies, Unit: Rydberg.
                 E: float, total energy of the electrons, Note that vpp is not include in E, Unit: Rydberg.
+                Ki: float, kinetic energy, Unit: Rydberg.
+                Vep: float, electron-proton potential energy, Unit: Rydberg.
+                Vee: float, electron-electron potential energy, Unit: Rydberg.
+                Se: float, entropy.
+                converged: bool, whether the calculation is converged
         """
         assert xp.shape[0] == n
         xp *= rs
