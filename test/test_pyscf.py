@@ -43,9 +43,7 @@ def pyscf_solver(n: int,
                  hf0: bool = False, 
                  pyscf_verbose: int = 0,
                  silent: bool = True
-            ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, 
-                       np.ndarray, np.ndarray, np.ndarray, np.ndarray, 
-                       float, float, float, float, float, float]:
+            ) -> dict:
     """
         Pyscf Hartree Fock / DFT solver for hydrogen.
     INPUT:
@@ -65,23 +63,24 @@ def pyscf_solver(n: int,
         pyscf_verbose: verbose level of pyscf.
         silent: if True, suppress output.
     OUTPUT:
-        pyscf_ovlp: overlap matrix, real or complex array of shape (n_ao, n_ao).
-        pyscf_hcore: core Hamiltonian matrix, real or complex array of shape (n_ao, n_ao).
-        pyscf_veff: effective potential matrix, real or complex array of shape (n_ao, n_ao).
-        pyscf_j: Coulomb matrix, real or complex array of shape (n_ao, n_ao).
-        pyscf_k: exchange matrix, real or complex array of shape (n_ao, n_ao).
-        pyscf_fock: Fock matrix, real or complex array of shape (n_ao, n_ao).
-        mo_coeff: molecular orbitals coefficients, complex array of shape (n_ao, n_mo).
-        dm: density matrix, real or complex array of shape (n_ao, n_ao).
-        bands: energy bands of corresponding molecular orbitals, 
-            ranking of energy from low to high. array of shape (n_mo,) unit: Rydberg.
-        occ: occupation number of molecular orbitals. array of shape (n_mo,).
-        Eelec: electronic energy, unit: Rydberg.
-        Ecore: core energy, unit: Rydberg.
-        Vee: electron-electron interaction energy, unit: Rydberg.
-        Vpp: proton-proton interaction energy, unit: Rydberg.
-        Se: entropy.
-        Etot: total energy, unit: Rydberg.
+        data: a dict including:
+            ovlp: overlap matrix, real or complex array of shape (n_ao, n_ao).
+            hcore: core Hamiltonian matrix, real or complex array of shape (n_ao, n_ao).
+            veff: effective potential matrix, real or complex array of shape (n_ao, n_ao).
+            j: Coulomb matrix, real or complex array of shape (n_ao, n_ao).
+            k: exchange matrix, real or complex array of shape (n_ao, n_ao).
+            fock: Fock matrix, real or complex array of shape (n_ao, n_ao).
+            mo_coeff: molecular orbitals coefficients, complex array of shape (n_ao, n_mo).
+            dm: density matrix, real or complex array of shape (n_ao, n_ao).
+            bands: energy bands of corresponding molecular orbitals, 
+                ranking of energy from low to high. array of shape (n_mo,) unit: Rydberg.
+            occ: occupation number of molecular orbitals. array of shape (n_mo,).
+            Eelec: electronic energy, unit: Rydberg.
+            Ecore: core energy, unit: Rydberg.
+            Vee: electron-electron interaction energy, unit: Rydberg.
+            Vpp: proton-proton interaction energy, unit: Rydberg.
+            Se: entropy.
+            Etot: total energy, unit: Rydberg.
     """
     Ry = 2
     xp *= rs
@@ -112,94 +111,85 @@ def pyscf_solver(n: int,
     kmf.verbose = pyscf_verbose
     kmf.kernel()
 
+    pyscf_ovlp = kmf.get_ovlp()
+    pyscf_hcore = kmf.get_hcore()
+    pyscf_veff = kmf.get_veff()
+    pyscf_j = kmf.get_j()
+    pyscf_fock = kmf.get_fock()
+    pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
+    mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
+    dm = kmf.make_rdm1() # (n_ao, n_ao)
+    bands = kmf.get_bands(kpts_band=kpt, kpt=np.array(kpt))[0][0]
+    occ = kmf.get_occ(mo_energy=bands)
+    Eelec = kmf.e_tot - kmf.energy_nuc()
+    Ecore = np.einsum('pq,qp', dm, pyscf_hcore).real
+    Vee = kmf.energy_elec()[1]
+    Vpp = kmf.energy_nuc()
+    Se = kmf.entropy
+    Etot = kmf.e_tot
+    data = {"ovlp": pyscf_ovlp,
+            "hcore": pyscf_hcore,
+            "veff": pyscf_veff,
+            "j": pyscf_j,
+            "k": pyscf_k,
+            "fock": pyscf_fock,
+            "mo_coeff": mo_coeff,
+            "dm": dm,
+            "bands": bands*Ry,
+            "occ": occ,
+            "Eelec": Eelec*Ry,
+            "Ecore": Ecore*Ry,
+            "Vee": Vee*Ry,
+            "Vpp": Vpp*Ry,
+            "Se": Se,
+            "Etot": Etot*Ry}
+    assert np.allclose(pyscf_fock, pyscf_hcore + pyscf_j - 0.5 * pyscf_k)
+    assert np.allclose(Vee, Eelec - Ecore)
+    assert np.allclose(Etot, Eelec + Vpp)
     if not silent:
-        
         print(f"{YELLOW}============ PYSCF DIR ============{RESET}")
-        print(f"{GREEN}dir(kmf):{RESET}", dir(kmf))
-        
-        print(f"{YELLOW}============ PYSCF matrices ============{RESET}")
-        # overlap matrix
-        pyscf_ovlp = kmf.get_ovlp()
-        print(f"{GREEN}pyscf overlap.shape:{RESET}", pyscf_ovlp.shape)
-        # print(f"{GREEN}pyscf overlap:{RESET}\n", pyscf_ovlp)
+        print(f"{BLUE}dir(kmf):{RESET}", dir(kmf))
 
-        pyscf_hcore = kmf.get_hcore()
-        print(f"{GREEN}pyscf hcore.shape:{RESET}", pyscf_hcore.shape)
-        # print(f"{GREEN}pyscf hcore:{RESET}\n", pyscf_hcore)
-        
-        pyscf_veff = kmf.get_veff()
-        print(f"{GREEN}pyscf veff.shape:{RESET}", pyscf_veff.shape)
-        # print(f"{GREEN}pyscf veff:{RESET}\n", pyscf_veff)
-
-        pyscf_j = kmf.get_j()
-        print(f"{GREEN}pyscf j.shape:{RESET}", pyscf_j.shape)
-        # print(f"{GREEN}pyscf j:{RESET}\n", pyscf_j)
-
-        pyscf_fock = kmf.get_fock()
-        pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
-        print(f"{GREEN}pyscf k.shape:{RESET}", pyscf_k.shape)
-        # print(f"{GREEN}pyscf k:{RESET}\n", pyscf_k)
-
-        pyscf_fock = kmf.get_fock()
-        print(f"{GREEN}pyscf fock.shape:{RESET}", pyscf_fock.shape)
-        # print(f"{GREEN}pyscf fock:{RESET}\n", pyscf_fock)
-
-        assert np.allclose(pyscf_fock, pyscf_hcore + pyscf_j - 0.5 * pyscf_k)
+        print(f"{YELLOW}============ PYSCF matrices ============{RESET}")        
+        print(f"{BLUE}pyscf overlap.shape:{RESET}", pyscf_ovlp.shape)
+        # print(f"{BLUE}pyscf overlap:{RESET}\n", pyscf_ovlp)
+        print(f"{BLUE}pyscf hcore.shape:{RESET}", pyscf_hcore.shape)
+        # print(f"{BLUE}pyscf hcore:{RESET}\n", pyscf_hcore)
+        print(f"{BLUE}pyscf veff.shape:{RESET}", pyscf_veff.shape)
+        # print(f"{BLUE}pyscf veff:{RESET}\n", pyscf_veff)
+        print(f"{BLUE}pyscf j.shape:{RESET}", pyscf_j.shape)
+        # print(f"{BLUE}pyscf j:{RESET}\n", pyscf_j)
+        print(f"{BLUE}pyscf k.shape:{RESET}", pyscf_k.shape)
+        # print(f"{BLUE}pyscf k:{RESET}\n", pyscf_k)
+        print(f"{BLUE}pyscf fock.shape:{RESET}", pyscf_fock.shape)
+        # print(f"{BLUE}pyscf fock:{RESET}\n", pyscf_fock)
 
         print(f"{YELLOW}============ PYSCF solution ============{RESET}")
-        # molecular coefficients
-        mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
-        print(f"{GREEN}mo_coeff.shape:{RESET}", mo_coeff.shape)
+        print(f"{BLUE}mo_coeff.shape:{RESET}", mo_coeff.shape)
         # print("mo_coeff:\n", mo_coeff)
-
-        # density matrix
-        dm = kmf.make_rdm1() # (n_ao, n_ao)
-        print(f"{GREEN}dm.shape:{RESET}", dm.shape)
+        print(f"{BLUE}dm.shape:{RESET}", dm.shape)
         # print("dm:\n", dm)
-
-        # energy bands
-        bands = kmf.get_bands(kpts_band=kpt, kpt=np.array(kpt))[0][0]
-        print(f"{GREEN}bands.shape:{RESET}", bands.shape)
-        print(f"{GREEN}bands (Hartree):{RESET}", bands)
-        print(f"{GREEN}bands (Rydberg):{RESET}", bands * Ry)
-
-        # occupation number
-        occ = kmf.get_occ(mo_energy=bands)
-        print(f"{GREEN}occ.shape:{RESET}", occ.shape)
-        print(f"{GREEN}occ:{RESET}", occ)
+        print(f"{BLUE}bands.shape:{RESET}", bands.shape)
+        print(f"{BLUE}bands (Hartree):{RESET}", bands)
+        print(f"{BLUE}bands (Rydberg):{RESET}", bands * Ry)
+        print(f"{BLUE}occ.shape:{RESET}", occ.shape)
+        print(f"{BLUE}occ:{RESET}", occ)
 
         print(f"{YELLOW}============ PYSCF energy ============{RESET}")
-        # total energy
-        Eelec = kmf.e_tot - kmf.energy_nuc()
-        print(f"{GREEN}Eelec = K + Vep + Vee (Hartree):{RESET}", Eelec)
-        print(f"{GREEN}Eelec = K + Vep + Vee (Rydberg):{RESET}", Eelec * Ry)
+        print(f"{BLUE}Eelec = K + Vep + Vee (Hartree):{RESET}", Eelec)
+        print(f"{BLUE}Eelec = K + Vep + Vee (Rydberg):{RESET}", Eelec * Ry)
+        print(f"{BLUE}K + Vep (Hartree):{RESET}", Ecore)
+        print(f"{BLUE}K + Vep (Rydberg):{RESET}", Ecore * Ry)
+        print(f"{BLUE}Vee (Hartree):{RESET}", Vee)
+        print(f"{BLUE}Vee (Rydberg):{RESET}", Vee * Ry)
+        print(f"{BLUE}Vpp (Hartree):{RESET}", Vpp)
+        print(f"{BLUE}Vpp (Rydberg):{RESET}", Vpp * Ry)
+        print(f"{BLUE}Se:{RESET}", Se)
+        print(f"{BLUE}Etot = K + Vep + Vee + Vpp (Hartree):{RESET}", Etot)
+        print(f"{BLUE}Etot = K + Vep + Vee + Vpp (Rydberg):{RESET}", Etot * Ry)
 
-        Ecore = np.einsum('pq,qp', dm, pyscf_hcore).real
-        print(f"{GREEN}K + Vep (Hartree):{RESET}", Ecore)
-        print(f"{GREEN}K + Vep (Rydberg):{RESET}", Ecore * Ry)
-
-        Vee = kmf.energy_elec()[1]
-        print(f"{GREEN}Vee (Hartree):{RESET}", Vee)
-        print(f"{GREEN}Vee (Rydberg):{RESET}", Vee * Ry)
-
-        assert np.allclose(Vee, Eelec - Ecore)
-
-        Vpp = kmf.energy_nuc()
-        print(f"{GREEN}Vpp (Hartree):{RESET}", Vpp)
-        print(f"{GREEN}Vpp (Rydberg):{RESET}", Vpp * Ry)
-
-        Se = kmf.entropy
-        print(f"{GREEN}Se:{RESET}", Se)
-
-        Etot = kmf.e_tot
-        print(f"{GREEN}Etot = K + Vep + Vee + Vpp (Hartree):{RESET}", Etot)
-        print(f"{GREEN}Etot = K + Vep + Vee + Vpp (Rydberg):{RESET}", Etot * Ry)
-        assert np.allclose(Etot, Eelec + Vpp)
-
-    return pyscf_ovlp, pyscf_hcore, pyscf_veff, pyscf_j, pyscf_k, pyscf_fock, \
-           mo_coeff, dm, bands*Ry, occ, \
-           Eelec*Ry, Ecore*Ry, Vee*Ry, Vpp*Ry, Se, Etot*Ry
-
+    return data
+    
 if __name__ == "__main__":
     # HF
     pyscf_solver(n, L, rs, xp, kpoint, basis, ifdft=False, xc=xc,
