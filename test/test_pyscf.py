@@ -125,7 +125,10 @@ def pyscf_solver(n: int,
     Ecore = np.einsum('pq,qp', dm, pyscf_hcore).real
     Vee = kmf.energy_elec()[1]
     Vpp = kmf.energy_nuc()
-    Se = kmf.entropy
+    if smearing:
+        Se = kmf.entropy
+    else:
+        Se = 0
     Etot = kmf.e_tot
     data = {"ovlp": pyscf_ovlp,
             "hcore": pyscf_hcore,
