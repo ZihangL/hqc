@@ -99,6 +99,13 @@ H DZV-GTH
 `hqc.pbc.slater`: Calculate slater matrix for LCAO orbitals.
 
 ## Release note
+>### hqc 0.1.11
+>Update the total energy in `hqc.pbc.pes` 'dev' mode returns from Eelec to Etot (add Vpp in E).
+
+>### hqc 0.1.10
+>Add `hqc.pbc.solver` to return more information of HF/DFT solver, including entropy.
+>Add eval_entropy in `hqc.pbc.solver`.
+
 >### hqc 0.1.9
 >Add `hqc.pbc.pes` to calculate *potential energy surface (PES)*.  
 >Add `hqc.pbc.potential` to calculate vpp.
