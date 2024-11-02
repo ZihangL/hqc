@@ -15,7 +15,6 @@ n, dim = 4, 3
 rs = 1.5
 L = (4/3*jnp.pi*n)**(1/3)
 basis_set = ['gth-dzv', 'gth-dzvp']
-basis_set = ['gth-dzv']
 xc = 'lda,vwn'
 rcut = 24
 grid_length = 0.12

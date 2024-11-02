@@ -112,7 +112,7 @@ def make_pes(n: int, L: float, rs: float, basis: str,
         """
         _, _, _, E, Ki, Vep, Vee, Se, converged = solver(xp)
         Vpp = potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
-        return E, Ki, Vep, Vee, Vpp, Se, converged
+        return E+Vpp, Ki, Vep, Vee, Vpp, Se, converged
 
     def pes_dev_kpt(xp: np.ndarray, kpt: np.ndarray) -> Tuple[float, float, float, float, float, float, bool]:
         """
@@ -131,7 +131,7 @@ def make_pes(n: int, L: float, rs: float, basis: str,
         """
         _, _, _, E, Ki, Vep, Vee, Se, converged = solver(xp, kpt)
         Vpp = potential_energy_pp(xp, L, rs, kappa=kappa, Gmax=Gmax)
-        return E, Ki, Vep, Vee, Vpp, Se, converged
+        return E+Vpp, Ki, Vep, Vee, Vpp, Se, converged
 
     if gamma:
         if mode == 'dev':
