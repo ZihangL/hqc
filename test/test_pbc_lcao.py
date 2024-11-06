@@ -2,10 +2,13 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from pyscf.pbc import gto, dft, scf
-from hqc.pbc.lcao import make_lcao
-from hqc.basis.parse import load_as_str
 jax.config.update("jax_enable_x64", True)
 
+from hqc.pbc.lcao import make_lcao
+from hqc.basis.parse import load_as_str
+
+from config import *
+from test_pyscf import pyscf_solver
 
 # Global test variables
 n, dim = 4, 3
@@ -21,184 +24,39 @@ key_p, key_kpt = jax.random.split(key)
 xp = jax.random.uniform(key_p, (n, 3), minval=0., maxval=L)
 kpt = jax.random.uniform(key_kpt, (3,), minval=-jnp.pi/L/rs, maxval=jnp.pi/L/rs)
 
-
-def pyscf_hf(n, L, rs, sigma, xp, basis, kpt, hf0=False, smearing=False, smearing_method='fermi'):
-    """
-        Pyscf Hartree Fock solver for hydrogen.
-    INPUT:
-        n: number of protons.
-        L: side length of unit cell, unit: rs.
-        rs: average atomic spacing, unit: Bohr
-        sigma: smearing width, unit: Hartree.
-        xp: array of shape (n, dim), position of protons.
-        basis: gto basis name, eg:'gth-szv', 'gth-tzv2p', 'gth-qzv3p'.
-        kpt: k-point, array of shape (3,).
-        hf0: if True, do Hartree Fock scf without Vpp.
-        smearing: if True, use Fermi-Dirac smearing
-            (finite temperature Hartree Fock or thermal Hartree Fock).
-    OUTPUT:
-        mo_coeff: molecular orbitals coefficients, complex array of shape (n_ao, n_mo).
-        bands: energy bands of corresponding molecular orbitals, 
-            ranking of energy from low to high. array of shape (n_mo,).
-    """
-    Ry = 2
-    xp *= rs
-    cell = gto.Cell()
-    cell.unit = 'B'
-    cell.a = np.eye(3) * L * rs
-    cell.atom = []
-    for ie in range(n):
-        cell.atom.append(['H', tuple(xp[ie])])
-    cell.spin = 0
-    cell.basis = {'H':gto.parse(load_as_str('H', basis), optimize=True)}
-    cell.symmetry = False
-    cell.build()
-
-    kpt = [kpt.tolist()]
-    kmf = scf.hf.RHF(cell, kpt=kpt)
-    # kmf.diis = False
-    kmf.init_guess = '1e'
-    if hf0:
-        kmf.max_cycle = 1
-        kmf.get_veff = lambda *args, **kwargs: np.zeros(kmf.get_hcore().shape)
-    if smearing:
-        kmf = scf.addons.smearing_(kmf, sigma=sigma, method=smearing_method)
-    kmf.verbose = 0
-    kmf.kernel()
-    mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
-    bands = kmf.get_bands(kpts_band=kpt, kpt=kpt)[0][0]
-    E = kmf.e_tot - kmf.energy_nuc()
-
-    # print("dir(kmf):", dir(kmf))
-    # pyscf_ovlp = kmf.get_ovlp(kpt=kpt)[0]
-    # print("pyscf overlap.shape:\n", pyscf_ovlp.shape)
-    # print("pyscf overlap:\n", pyscf_ovlp)
-    # pyscf_hcore = kmf.get_hcore(kpt=kpt)[0]
-    # print("pyscf hcore.shape:\n", pyscf_hcore.shape)
-    # print("pyscf hcore:\n", pyscf_hcore)
-    # pyscf_veff = kmf.get_veff(kpt=kpt)
-    # print("pyscf veff.shape:\n", pyscf_veff.shape)
-    # print("pyscf veff:\n", pyscf_veff)
-    # pyscf_dm = kmf.make_rdm1(kpt=kpt)
-    # print("pyscf dm.shape:\n", pyscf_dm.shape)
-    # print("pyscf dm:\n", pyscf_dm)
-    # pyscf_j= kmf.get_j(kpt=kpt)
-    # print("pyscf j.shape:\n", pyscf_j.shape)
-    # print("pyscf j:\n", pyscf_j)
-    # pyscf_fock = kmf.get_fock()
-    # print("pyscf fock.shape:\n", pyscf_fock.shape)
-    # print("pyscf fock:\n", pyscf_fock)
-    # pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
-    # print("pyscf k.shape:\n", pyscf_k.shape)
-    # print("pyscf k:\n", pyscf_k)
-
-    return mo_coeff, bands * Ry, E * Ry
-
-
-def pyscf_dft(n, L, rs, sigma, xp, basis, kpt, xc='lda,vwn', smearing=False, smearing_method='fermi'):
-    """
-        Pyscf DFT solver for hydrogen.
-    INPUT:
-        n: number of protons.
-        L: side length of unit cell, unit: rs.
-        rs: average atomic spacing, unit: Bohr
-        sigma: smearing width, unit: Hartree.
-        xp: array of shape (n, dim), position of protons.
-        basis: gto basis name, eg:'gth-szv', 'gth-tzv2p', 'gth-qzv3p'.
-        kpt: k-point, array of shape (3,).
-        xc: exchange correlation functional, eg:'lda', 'pbe', 'b3lyp'.
-        smearing: if True, use Fermi-Dirac smearing
-            (finite temperature Hartree Fock or thermal Hartree Fock).
-    OUTPUT:
-        mo_coeff: molecular orbitals coefficients, complex array of shape (n_ao, n_mo).
-        bands: energy bands of corresponding molecular orbitals, 
-            ranking of energy from low to high. array of shape (n_mo,).
-    """
-    Ry = 2
-    xp *= rs
-    cell = gto.Cell()
-    cell.unit = 'B'
-    cell.a = np.eye(3) * L * rs
-    cell.atom = []
-    for ie in range(n):
-        cell.atom.append(['H', tuple(xp[ie])])
-    cell.spin = 0
-    cell.basis = {'H':gto.parse(load_as_str('H', basis), optimize=True)}
-    cell.build()
-
-    kpt = [kpt.tolist()]
-    kmf = dft.RKS(cell, kpt=kpt)
-    if smearing:
-        kmf = scf.addons.smearing_(kmf, sigma=sigma, method=smearing_method)
-    kmf.xc = xc
-    # kmf.diis = False
-    kmf.verbose = 0
-    kmf.kernel()
-    mo_coeff = kmf.mo_coeff  # (n_ao, n_mo)
-    bands = kmf.get_bands(kpts_band=kpt, kpt=np.array(kpt))[0][0]
-    E = kmf.e_tot - kmf.energy_nuc()
-
-    # print("dir(kmf):", dir(kmf))
-    # pyscf_ovlp = kmf.get_ovlp(kpt=kpt)[0]
-    # print("pyscf overlap.shape:\n", pyscf_ovlp.shape)
-    # print("pyscf overlap:\n", pyscf_ovlp)
-    # pyscf_hcore = kmf.get_hcore(kpt=kpt)[0]
-    # print("pyscf hcore.shape:\n", pyscf_hcore.shape)
-    # print("pyscf hcore:\n", pyscf_hcore)
-    # pyscf_veff = kmf.get_veff(kpt=kpt)
-    # print("pyscf veff.shape:\n", pyscf_veff.shape)
-    # print("pyscf veff:\n", pyscf_veff)
-    # pyscf_dm = kmf.make_rdm1(kpt=kpt)
-    # print("pyscf dm.shape:\n", pyscf_dm.shape)
-    # print("pyscf dm:\n", pyscf_dm)
-    # pyscf_j= kmf.get_j(kpt=kpt)
-    # print("pyscf j.shape:\n", pyscf_j.shape)
-    # print("pyscf j:\n", pyscf_j)
-    # pyscf_fock = kmf.get_fock()
-    # print("pyscf fock.shape:\n", pyscf_fock.shape)
-    # print("pyscf fock:\n", pyscf_fock)
-    # pyscf_k = 2 * (pyscf_hcore + pyscf_j - pyscf_fock)
-    # print("pyscf k.shape:\n", pyscf_k.shape)
-    # print("pyscf k:\n", pyscf_k)
-    
-    return mo_coeff, bands * Ry, E * Ry
-
-
 def lcao_test(dft, diis, smearing, gamma):
  
-    print("\n============= test info =============")
+    print(f"\n{YELLOW}============= test info ============={RESET}")
     if dft and gamma:
-        print("test: dft gamma")
+        print(f"{BLUE}test:{RESET} dft gamma")
     elif dft and not gamma:
-        print("test: dft kpt")
+        print(f"{BLUE}test:{RESET} dft kpt")
     elif not dft and gamma:
-        print("test: hf gamma")
+        print(f"{BLUE}test:{RESET} hf gamma")
     else:
-        print("test: hf kpt")
+        print(f"{BLUE}test:{RESET} hf kpt")
     if gamma:
         kpoint = jnp.array([0., 0., 0.])
     else:
         kpoint = kpt
-    print("n:", n)
-    print("rs:", rs)
-    print("L:", L)
-    print("kpt:", kpoint)
-    print("basis_set:", basis_set)
-    print("rcut:", rcut)
-    print("grid_length:", grid_length)
-    print("DIIS:", diis)
-    print("smearing:", smearing)
-    print("smearing sigma:", smearing_sigma)
-    print("xp:\n", xp)
+    print(f"{BLUE}n:{RESET}", n)
+    print(f"{BLUE}rs:{RESET}", rs)
+    print(f"{BLUE}L:{RESET}", L)
+    print(f"{BLUE}kpt:{RESET}", kpoint)
+    print(f"{BLUE}basis_set:{RESET}", basis_set)
+    print(f"{BLUE}rcut:{RESET}", rcut)
+    print(f"{BLUE}grid_length:{RESET}", grid_length)
+    print(f"{BLUE}DIIS:{RESET}", diis)
+    print(f"{BLUE}smearing:{RESET}", smearing)
+    print(f"{BLUE}smearing sigma:{RESET}", smearing_sigma)
+    print(f"{BLUE}xp:\n{RESET}", xp)
 
     for basis in basis_set:
-        print("\n-----", basis, "-----")
+        print(f"\n{YELLOW}-----", basis, f"-----{RESET}")
 
         # PBC energy test
-        if dft:
-            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_dft(n, L, rs, smearing_sigma, xp, basis, kpoint, xc=xc, smearing=smearing)
-        else:
-            mo_coeff_pyscf, bands_pyscf, E_pyscf = pyscf_hf(n, L, rs, smearing_sigma, xp, basis, kpoint, smearing=smearing)
+        pyscf_data = pyscf_solver(n, L, rs, xp, kpoint, basis, ifdft=dft, xc=xc, smearing=smearing,
+                                  smearing_method='fermi', smearing_sigma=smearing_sigma)
 
         lcao = make_lcao(n, L, rs, basis, grid_length=grid_length, diis=diis, dft=dft, 
                          smearing=smearing, smearing_sigma=smearing_sigma, gamma=gamma)
@@ -208,29 +66,22 @@ def lcao_test(dft, diis, smearing, gamma):
             mo_coeff, bands, E = lcao(xp, kpoint)
 
         mo_coeff = mo_coeff @ jnp.diag(jnp.sign(mo_coeff[0]).conjugate())
-        mo_coeff_pyscf = mo_coeff_pyscf @ jnp.diag(jnp.sign(mo_coeff_pyscf[0]).conjugate())
+        mo_coeff_pyscf = pyscf_data["mo_coeff"] @ jnp.diag(jnp.sign(pyscf_data["mo_coeff"][0]).conjugate())
         # print("mo_coeff:\n", mo_coeff)
         # print("mo_coeff_pyscf:\n", mo_coeff_pyscf)
-        print("max diff between mo_coeff and pyscf_mo_coeff:", jnp.max(mo_coeff-mo_coeff_pyscf))
+        print(f"{BLUE}max diff between mo_coeff and pyscf_mo_coeff:{RESET}", jnp.max(mo_coeff-mo_coeff_pyscf))
         assert np.allclose(mo_coeff, mo_coeff_pyscf, atol=1e-2)
-        print("same mo_coeff")
+        print(f"{GREEN}same mo_coeff{RESET}")
 
-        print("bands:\n", bands)
-        print("bands_pyscf:\n", bands_pyscf)
-        assert np.allclose(bands, bands_pyscf, atol=1e-3)
-        print("same bands")
+        print(f"{BLUE}bands:\n{RESET}", bands)
+        print(f"{BLUE}bands_pyscf:\n{RESET}", pyscf_data["bands"])
+        assert np.allclose(bands, pyscf_data["bands"], atol=1e-3)
+        print(f"{GREEN}same bands{RESET}")
 
-        print("E:", E)
-        print("E_pyscf:", E_pyscf)
-        assert np.allclose(E, E_pyscf, atol=1e-3)
-        print("same E")
-
-        # vmap test
-        xp2 = jnp.concatenate([xp, xp]).reshape(2, n, 3)
-        if gamma:  
-            jax.vmap(lcao, 0, (0, 0, 0))(xp2)
-        else:
-            jax.vmap(lcao, (0, None), (0, 0, 0))(xp2, kpoint)
+        print(f"{BLUE}E:{RESET}", E)
+        print(f"{BLUE}E_pyscf:{RESET}", pyscf_data["Eelec"])
+        assert np.allclose(E, pyscf_data["Eelec"], atol=1e-3)
+        print(f"{GREEN}same E{RESET}")
 
 def test_hf_gamma_diis():
     dft = False
