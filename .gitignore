@@ -4,3 +4,4 @@ doc/
 *.egg-info
 outputs/
 data/
+jax_xc/
