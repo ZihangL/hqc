@@ -1,7 +1,6 @@
 __pycache__/
-doc/*.aux
-doc/*.dvi
-doc/*.gz
+doc/
+.pytest_cache/
 *.egg-info
 outputs/
 data/
