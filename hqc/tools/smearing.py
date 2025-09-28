@@ -31,7 +31,13 @@ def make_occupation_func(n, n_mo, smearing=True, smearing_method='fermi',
                 Output:
                     f: array of shape (n_mo,), Fermi-Dirac distribution f function.
             """
-            return 2/(jnp.exp((w1-mu)/smearing_sigma)+1)
+            # return 2/(jnp.exp((w1-mu)/smearing_sigma)+1)
+            # return jnp.where(
+            #             w1 >= mu,
+            #             2 * jnp.exp(-(w1-mu)/smearing_sigma) / (1 + jnp.exp(-(w1-mu)/smearing_sigma)),
+            #             2/(jnp.exp((w1-mu)/smearing_sigma)+1)
+            #         )
+            return 2/(jnp.exp(jnp.clip((w1-mu)/smearing_sigma, -50, 50))+1)
 
         def gaussian_f_func(mu, w1):
             """
