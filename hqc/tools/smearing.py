@@ -133,7 +133,7 @@ def make_occupation_func(n, n_mo, smearing=True, smearing_method='fermi',
                     return mu, mu_new, loop+1
                 
                 def cond_fun(carry):
-                    return jnp.abs(carry[1] - carry[0]) > mu_tol
+                    return (jnp.abs(carry[1] - carry[0]) > mu_tol) & (carry[2] < max_cycle)
                     
                 _, mu, _ = jax.lax.while_loop(cond_fun, body_fun, (1., mu_init, 0))
 
