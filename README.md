@@ -69,6 +69,19 @@ Yes, we only need `jax`.
 `hqc` has better performance on GPU.  
 If you want to run test, you need to install `pyscf`.
 
+### Coding style
+
+Optional developer tooling is configured via `pyproject.toml`:
+
+- `make format` runs `black` across the repository.
+- `make lint` runs `ruff` to lint and sort imports.
+
+Install the extras locally with:
+
+```bash
+pip install black ruff
+```
+
 ## Basis
 The basis file is in the path `hqc.basis`.
 
