@@ -174,27 +174,22 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
         def diis_body_fun(carry):
             _, E, _, _, loop, F_k, errvec_k = carry
 
-            # get DIIS c_k  —— 加入缩放与正则，改用 pinv 提高鲁棒性
-            # 原始误差向量 errvec_k: (diis_space, n_ao, n_ao)
-            norms = jnp.sqrt(jnp.einsum('imn,imn->i', errvec_k, errvec_k))
-            scale = 1.0 / jnp.maximum(norms, 1e-12)
-            errvec_scaled = errvec_k * scale[:, None, None]
-
-            B = jnp.einsum('imn,jmn->ij', errvec_scaled, errvec_scaled)  # 更好条件数
+            # get DIIS c_k （加入 Pulay 矩阵正则，但用 solve 而非 pinv）
+            B = jnp.einsum('imn,jmn->ij', errvec_k, errvec_k)
+            # 小幅度正则，随尺度自适应，改善条件数但不改变极小值
             eta = 1e-12 * (jnp.trace(B) / diis_space + 1.0)
-            B = B + eta * jnp.eye(diis_space)  # 正则化，防止奇异
+            B = B + eta * jnp.eye(diis_space)
 
             temp1 = -jnp.ones((diis_space, 1))
             temp2 = jnp.array([jnp.append(-jnp.ones(diis_space), 0.0)])
             h = jnp.concatenate((jnp.concatenate((B, temp1), axis=1), temp2), axis=0)
             g = jnp.append(jnp.zeros(diis_space), -1.0)
 
-            # 使用 pinv 而非 solve，提高稳健性
-            c_full = jnp.dot(jnp.linalg.pinv(h, rcond=1e-12), g)
-            c_k = c_full[:diis_space]
+            c_k = jnp.linalg.solve(h, g)[:diis_space]
 
             # guess Fock matrix
             _F = jnp.einsum('k,kab->ab', c_k, F_k)
+
             # damp
             _F = (1 - diis_damp) * _F + diis_damp * F_k[-1]
 
@@ -230,8 +225,15 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
 
             return (E, E_new, mo_coeff, w1, loop+1, F_k, errvec_k)
 
+        # def diis_cond_fun(carry):
+        #     return (jnp.abs(carry[1] - carry[0]) > tol) * (carry[4] < max_cycle)
+
         def diis_cond_fun(carry):
-            return (jnp.abs(carry[1] - carry[0]) > tol) * (carry[4] < max_cycle)
+            # 同时检查能量差与误差范数
+            E_prev, E_new, _, _, loop, _, errvec_k = carry
+            err_norm = jnp.linalg.norm(errvec_k[-1])
+            err_tol = tol * 10.0  # 误差范数阈值，略放宽
+            return ((jnp.abs(E_new - E_prev) > tol) | (err_norm > err_tol)) & (loop < max_cycle)
 
         _, E, mo_coeff, w1, loop, F_k, errvec_k = jax.lax.while_loop(diis_cond_fun, diis_body_fun, 
                                                 (E-1., E, mo_coeff, w1, loop, F_k, errvec_k))
