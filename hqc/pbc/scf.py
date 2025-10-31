@@ -174,17 +174,27 @@ def make_scf(diis=True, diis_space=8, diis_start_cycle=1, diis_damp=0, tol=1e-7,
         def diis_body_fun(carry):
             _, E, _, _, loop, F_k, errvec_k = carry
 
-            # get DIIS c_k
-            B = jnp.einsum('imn,jmn->ij', errvec_k, errvec_k)
+            # get DIIS c_k  —— 加入缩放与正则，改用 pinv 提高鲁棒性
+            # 原始误差向量 errvec_k: (diis_space, n_ao, n_ao)
+            norms = jnp.sqrt(jnp.einsum('imn,imn->i', errvec_k, errvec_k))
+            scale = 1.0 / jnp.maximum(norms, 1e-12)
+            errvec_scaled = errvec_k * scale[:, None, None]
+
+            B = jnp.einsum('imn,jmn->ij', errvec_scaled, errvec_scaled)  # 更好条件数
+            eta = 1e-12 * (jnp.trace(B) / diis_space + 1.0)
+            B = B + eta * jnp.eye(diis_space)  # 正则化，防止奇异
+
             temp1 = -jnp.ones((diis_space, 1))
-            temp2 = jnp.array([jnp.append(-jnp.ones(diis_space), 0)])
+            temp2 = jnp.array([jnp.append(-jnp.ones(diis_space), 0.0)])
             h = jnp.concatenate((jnp.concatenate((B, temp1), axis=1), temp2), axis=0)
-            g = jnp.append(jnp.zeros(diis_space), -1)
-            c_k = jnp.linalg.solve(h, g)[:diis_space]
+            g = jnp.append(jnp.zeros(diis_space), -1.0)
+
+            # 使用 pinv 而非 solve，提高稳健性
+            c_full = jnp.dot(jnp.linalg.pinv(h, rcond=1e-12), g)
+            c_k = c_full[:diis_space]
 
             # guess Fock matrix
             _F = jnp.einsum('k,kab->ab', c_k, F_k)
-
             # damp
             _F = (1 - diis_damp) * _F + diis_damp * F_k[-1]
 
