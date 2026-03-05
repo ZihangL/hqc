@@ -1,7 +1,12 @@
 __pycache__/
-doc/
+doc/Makefile
+doc/note*
+doc/refs*
 .pytest_cache/
 *.egg-info
 outputs/
 data/
 jax_xc/
+.vscode/
+.claude/
+bench/
