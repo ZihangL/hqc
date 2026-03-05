@@ -10,3 +10,4 @@ jax_xc/
 .vscode/
 .claude/
 bench/
+test/*.md

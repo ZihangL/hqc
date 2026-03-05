@@ -1,93 +1,124 @@
-# hqc
+# HQC - Hydrogen Quantum Chemistry
 
-Quantum chemistry calculations in Hydrogen system.
+[![PyPI version](https://img.shields.io/pypi/v/hqc.svg)](https://pypi.org/project/hqc/)
+[![Python versions](https://img.shields.io/pypi/pyversions/hqc.svg)](https://pypi.org/project/hqc/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Returns Hartree fock or DFT energy of PBC or isolated Hydrogen system, unit: Rydberg.
+Quantum chemistry calculations for Hydrogen systems using JAX. HQC provides GPU-accelerated Hartree-Fock and DFT calculations for periodic and isolated Hydrogen systems.
 
-## Install
+## Features
 
-clone and cd to this directory.
+- **GPU-Accelerated**: Built on JAX for high-performance computing on GPUs
+- **Periodic Boundary Conditions**: Full support for PBC calculations using GPW (Gaussian and Plane Waves) method
+- **Multiple Methods**: Hartree-Fock and DFT (LDA, GGA) implementations
+- **K-point Support**: K-point sampling for periodic systems
+- **Flexible Basis Sets**: CP2K-format basis sets (GTH pseudopotentials)
+- **Temperature Effects**: Smearing methods for finite-temperature calculations
+- **Automatic Differentiation**: JAX-based automatic differentiation for forces and gradients
 
-use "pip install -e ." to install hydrogenqc.
+## Installation
+
+### From PyPI
+
 ```bash
+pip install hqc
+```
+
+### From Source
+
+```bash
+git clone https://code.itp.ac.cn/lzh/hydrogen-qc.git
+cd hydrogen-qc
 pip install -e .
 ```
 
-use "pip uninstall hqc" to uninstall.
-```bash
-pip unintall hqc
-```
+### Requirements
 
-## Import
+- Python >= 3.9
+- JAX >= 0.4.0
+- JAXlib >= 0.4.0
+- NumPy >= 1.20.0
+- PySCF >= 2.0.0 (for testing and comparison)
 
-use "import hqc" directly to import this package anywhere.
+## Quick Start
+
+### Basic DFT Calculation
+
 ```python
-import hqc
+import jax
+import jax.numpy as jnp
+from hqc.pbc.lcao import make_lcao
+
+# System parameters
+n = 8  # number of electrons
+rs = 1.25  # Wigner-Seitz radius
+L = (4/3*jnp.pi*n)**(1/3)  # box size
+basis = 'gth-dzv'
+
+# Generate random positions
+key = jax.random.PRNGKey(42)
+xp = jax.random.uniform(key, (n, 3), minval=0., maxval=L)
+
+# Create LCAO solver
+lcao = make_lcao(n, L, rs, basis, dft=True)
+
+# Run calculation
+mo_coeff, bands = lcao(xp)
+print("Band energies:", bands)
 ```
 
-## Example
-Compare the DFT results with Pyscf
+### Finite Temperature Calculation
 
 ```python
 from hqc.pbc.lcao import make_lcao
-from hqc.pbc.pyscf import pyscf_dft
-import jax
-import jax.numpy as jnp
 
-rs = 1.25
-n, dim = 8, 3
-basis = 'gth-dzv'
-T = 10000 # K
-beta = 157888.088922572/T # inverse temperature in unit of 1/Ry
-sigma = 1/beta/2 # temperature in Hartree unit
+T = 10000  # Temperature in Kelvin
+beta = 157888.088922572/T  # inverse temperature (1/Ry)
+sigma = 1/beta/2  # smearing parameter (Hartree)
 
-L = (4/3*jnp.pi*n)**(1/3)
-key = jax.random.PRNGKey(42)
-xp = jax.random.uniform(key, (n, dim), minval=0., maxval=L)
+lcao = make_lcao(
+    n, L, rs, basis,
+    dft=True,
+    smearing=True,
+    smearing_sigma=sigma
+)
 
-lcao = make_lcao(n, L, rs, basis, dft=True, smearing=True, smearing_sigma=sigma)
 mo_coeff, bands = lcao(xp)
-print("================= solver =================")
-# print("mo_coeff:\n", mo_coeff)
-print("bands:\n", bands)
-
-mo_coeff_dft, energy_dft = pyscf_dft(n, L, rs, sigma, xp, basis, xc='lda,vwn', smearing=True, smearing_method='fermi')
-print("================= pyscf =================")
-# print("mo_coeff:\n", mo_coeff)
-print("bands:\n", bands)                                          
-```
-or use "python example.py" to run a specific kind of test for hydrogen.
-```bash
-python example.py
 ```
 
-## Requirements
+### Potential Energy Surface
 
-        jax
+```python
+from hqc.pbc.pes import make_pes
 
-Yes, we only need `jax`.  
-`hqc` has better performance on GPU.  
-If you want to run test, you need to install `pyscf`.
+# Create PES calculator
+pes = make_pes(n, L, rs, basis, dft=True)
 
-### Coding style
-
-Optional developer tooling is configured via `pyproject.toml`:
-
-- `make format` runs `black` across the repository.
-- `make lint` runs `ruff` to lint and sort imports.
-
-Install the extras locally with:
-
-```bash
-pip install black ruff
+# Calculate energy
+energy = pes(xp)
+print(f"Total energy: {energy} Ry")
 ```
 
-## Basis
-The basis file is in the path `hqc.basis`.
+## Modules
 
-`hqc.basis.parse` can find any `basis_name.dat` file in that path automatically, where `basis_name` is the name of your basis when you load it, for example, "gth-dzv" for `gth-dzv.dat`. 
+- **hqc.pbc.gto**: Gaussian-type orbital evaluation
+- **hqc.pbc.lcao**: Hartree-Fock and DFT solvers (LCAO method)
+- **hqc.pbc.pes**: Potential energy surface calculations
+- **hqc.pbc.overlap**: Basis set overlap integrals
+- **hqc.pbc.slater**: Slater determinant for LCAO orbitals
+- **hqc.pbc.solver**: Low-level solver with detailed output (entropy, energy components)
+- **hqc.pbc.potential**: Electron-electron and electron-ion potentials
 
-`basis_name.dat` is in **CP2K** format, take `hqc.basis.gth-raw.gth-dzv.dat` as an example:
+## Basis Sets
+
+HQC uses CP2K-format basis sets with GTH pseudopotentials. Basis files are located in `hqc/basis/` and are automatically discovered by name.
+
+Available basis sets include:
+- `gth-szv`, `gth-dzv`, `gth-tzv`
+- `gth-dzvp`, `gth-tzvp`, `gth-qzv3p`
+- And many more in `hqc/basis/gth-raw/`
+
+Example basis file format (`gth-dzv.dat`):
 ```
 #BASIS SET
 H DZV-GTH
@@ -100,63 +131,71 @@ H DZV-GTH
 #
 ```
 
-## Functions
-`hqc.pbc.gto`: Evaluate gto orbital.
+## Testing
 
-`hqc.pbc.lcao`: HF or DFT solver.
+Run the test suite with pytest:
 
-`hqc.pbc.pes`: HF or DFT potential energy surface (PES).
+```bash
+pip install pytest
+pytest test/
+```
 
-`hqc.pbc.overlap`: Calculate basis overlap.
+Compare with PySCF results:
 
-`hqc.pbc.slater`: Calculate slater matrix for LCAO orbitals.
+```bash
+python -m pytest test/test_pbc_solver.py -v
+```
 
-## Release note
->### hqc 0.1.11
->Update the total energy in `hqc.pbc.pes` 'dev' mode returns from Eelec to Etot (add Vpp in E).
+## Development
 
->### hqc 0.1.10
->Add `hqc.pbc.solver` to return more information of HF/DFT solver, including entropy.
->Add eval_entropy in `hqc.pbc.solver`.
+### Code Formatting
 
->### hqc 0.1.9
->Add `hqc.pbc.pes` to calculate *potential energy surface (PES)*.  
->Add `hqc.pbc.potential` to calculate vpp.
+Install development tools:
 
->### hqc 0.1.8
->**[*Interface change*]**  
->Add *k-point* support in `hqc.pbc.slater`.
+```bash
+pip install black ruff
+```
 
->### hqc 0.1.7
->Input and output type check.  
+Format code:
 
->### hqc 0.1.6
->Simplify *exchange_correlation_fn* in the scf loop. 
+```bash
+make format  # runs black
+make lint    # runs ruff
+```
 
->### hqc 0.1.5
->Simplify structure, add `hqc.pbc.scf`.
+Or manually:
 
->### hqc 0.1.4 
->**[*Interface change*]**  
->Add *k-point* support for DFT method.
+```bash
+black .
+ruff check --fix .
+```
 
->### hqc 0.1.3 
->**[*Interface change*]**  
->Add *k-point* support for HF method.
+## Documentation
 
->### hqc 0.1.2 
->**[*Interface change*]**  
->Add *E* in the returns of `lcao` function.
+For detailed algorithm documentation, see [doc/solver_algorithm.md](doc/solver_algorithm.md).
 
->### hqc 0.1.1
->Add `hqc.pbc.slater`.
+## Contributing
 
->### hqc 0.1.0 
->Rename `hqc.pbc.ao` to `hqc.pbc.gto`.  
->Rename `hqc.pbc.mo` to `hqc.pbc.lcao`.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
->### hqc 0.0.2
->Update structure, ready to use `pip install -e .`
+## Citation
 
->### hqc 0.0.1
->Init.
+If you use HQC in your research, please cite:
+
+```bibtex
+@software{hqc2025,
+  author = {Li, Zihang},
+  title = {HQC: Hydrogen Quantum Chemistry with JAX},
+  year = {2025},
+  url = {https://code.itp.ac.cn/lzh/hydrogen-qc}
+}
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+
