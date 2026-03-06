@@ -2,9 +2,134 @@
 
 ## Overview
 
-HQC (Hydrogen Quantum Chemistry) is a quantum chemistry solver specifically designed for hydrogen systems, supporting Hartree-Fock (HF) and Density Functional Theory (DFT) calculations under periodic boundary conditions (PBC). This document provides a detailed explanation of the HF and DFT solution algorithms and their implementation in HQC.
+HQC (Hydrogen Quantum Chemistry) is a quantum chemistry solver specifically designed for hydrogen systems, supporting Hartree-Fock (HF) and Density Functional Theory (DFT) calculations for both periodic systems and isolated molecules. This document provides a detailed explanation of the HF and DFT solution algorithms and their implementation in HQC.
 
-## 1. Basic Setup
+The solver supports two types of systems:
+- **Periodic systems** (hqc.pbc.solver): Crystalline systems with periodic boundary conditions
+- **Isolated systems** (hqc.gto.solver): Molecules and atoms without periodic boundary conditions
+
+## 0. Isolated Systems (Non-Periodic)
+
+For isolated molecular systems, HQC uses standard Gaussian Type Orbitals (GTOs) without periodic boundary conditions. The implementation is in `hqc.gto.solver` and follows the conventional quantum chemistry approach.
+
+### 0.1 Basis Functions
+
+For isolated systems, basis functions are contracted Gaussians centered on atomic positions:
+
+$$
+\varphi_i(\mathbf{r}) = \sum_{k} c_{ik} \exp(-\alpha_k |\mathbf{r} - \mathbf{R}_i|^2)
+$$
+
+where $\mathbf{R}_i$ is the position of atom $i$, $\alpha_k$ are Gaussian exponents, and $c_{ik}$ are contraction coefficients.
+
+### 0.2 One-Electron Integrals
+
+**Overlap Matrix:**
+
+$$
+S_{pq} = \int d\mathbf{r} \, \varphi_p^*(\mathbf{r}) \varphi_q(\mathbf{r})
+$$
+
+For s-type primitive Gaussians:
+
+$$
+S_{pq} = \left(\frac{\pi}{\alpha_p + \alpha_q}\right)^{3/2} \exp\left(-\frac{\alpha_p \alpha_q}{\alpha_p + \alpha_q} |\mathbf{R}_p - \mathbf{R}_q|^2\right)
+$$
+
+**Kinetic Energy Matrix:**
+
+$$
+T_{pq} = \int d\mathbf{r} \, \varphi_p^*(\mathbf{r}) \left(-\frac{1}{2}\nabla^2\right) \varphi_q(\mathbf{r})
+$$
+
+For s-type primitive Gaussians:
+
+$$
+T_{pq} = \frac{\alpha_p \alpha_q}{\alpha_p + \alpha_q} \left[3 - 2\frac{\alpha_p \alpha_q}{\alpha_p + \alpha_q} |\mathbf{R}_p - \mathbf{R}_q|^2\right] S_{pq}
+$$
+
+**Nuclear Attraction Matrix:**
+
+$$
+V_{pq} = \int d\mathbf{r} \, \varphi_p^*(\mathbf{r}) \left(-\sum_A \frac{Z_A}{|\mathbf{r} - \mathbf{R}_A|}\right) \varphi_q(\mathbf{r})
+$$
+
+For s-type primitive Gaussians, this involves the Boys function $F_0(t)$:
+
+$$
+V_{pq} = -\sum_A Z_A \frac{2\pi}{\alpha_p + \alpha_q} \exp\left(-\frac{\alpha_p \alpha_q}{\alpha_p + \alpha_q} |\mathbf{R}_p - \mathbf{R}_q|^2\right) F_0\left((\alpha_p + \alpha_q)|\mathbf{R}_P - \mathbf{R}_A|^2\right)
+$$
+
+where $\mathbf{R}_P = \frac{\alpha_p \mathbf{R}_p + \alpha_q \mathbf{R}_q}{\alpha_p + \alpha_q}$ and $F_0(t) = \frac{1}{2}\sqrt{\frac{\pi}{t}} \text{erf}(\sqrt{t})$.
+
+### 0.3 Two-Electron Integrals
+
+Electron repulsion integrals (ERIs):
+
+$$
+(pq|rs) = \int d\mathbf{r}_1 d\mathbf{r}_2 \, \varphi_p^*(\mathbf{r}_1) \varphi_q(\mathbf{r}_1) \frac{1}{|\mathbf{r}_1 - \mathbf{r}_2|} \varphi_r^*(\mathbf{r}_2) \varphi_s(\mathbf{r}_2)
+$$
+
+For s-type primitive Gaussians:
+
+$$
+(pq|rs) = \frac{2\pi^{5/2}}{(\alpha_p + \alpha_q)(\alpha_r + \alpha_s)\sqrt{\alpha_p + \alpha_q + \alpha_r + \alpha_s}} \exp\left(-\frac{\alpha_p \alpha_q}{\alpha_p + \alpha_q} |\mathbf{R}_p - \mathbf{R}_q|^2 - \frac{\alpha_r \alpha_s}{\alpha_r + \alpha_s} |\mathbf{R}_r - \mathbf{R}_s|^2\right) F_0(\rho |\mathbf{R}_P - \mathbf{R}_Q|^2)
+$$
+
+where $\rho = \frac{(\alpha_p + \alpha_q)(\alpha_r + \alpha_s)}{\alpha_p + \alpha_q + \alpha_r + \alpha_s}$.
+
+### 0.4 Self-Consistent Field Iteration
+
+The Hartree-Fock equations for isolated systems:
+
+$$
+\mathbf{F} \mathbf{C} = \mathbf{S} \mathbf{C} \mathbf{\epsilon}
+$$
+
+where the Fock matrix is:
+
+$$
+F_{pq} = H_{pq}^{\text{core}} + \sum_{rs} P_{rs} \left[(pq|rs) - \frac{1}{2}(pr|qs)\right]
+$$
+
+The density matrix is:
+
+$$
+P_{pq} = \sum_i^{\text{occ}} n_i C_{pi} C_{qi}^*
+$$
+
+where $n_i$ is the occupation number (2 for closed-shell, 1 for open-shell).
+
+**Nuclear Repulsion Energy:**
+
+$$
+E_{\text{nuc}} = \sum_{A<B} \frac{Z_A Z_B}{|\mathbf{R}_A - \mathbf{R}_B|}
+$$
+
+**Total Energy:**
+
+$$
+E_{\text{total}} = \sum_{pq} P_{pq} H_{pq}^{\text{core}} + \frac{1}{2}\sum_{pqrs} P_{pq} P_{rs} \left[(pq|rs) - \frac{1}{2}(pr|qs)\right] + E_{\text{nuc}}
+$$
+
+### 0.5 Implementation
+
+The isolated system solver is implemented in `hqc/gto/solver.py` with the following structure:
+
+```python
+solver = make_solver(basis='gth-szv', diis=True, tol=1e-7, max_cycle=100)
+E_total, E_elec, E_nuc, mo_coeff, mo_energy, converged = solver(
+    atom_positions, atom_charges, n_electrons
+)
+```
+
+Key features:
+- Supports both closed-shell and open-shell systems
+- DIIS acceleration for faster convergence
+- Uses Boys function for nuclear attraction and electron repulsion integrals
+- Cartesian to spherical conversion for proper normalization
+
+## 1. Basic Setup (Periodic Systems)
 
 ### 1.1 Basis Set
 

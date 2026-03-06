@@ -42,7 +42,9 @@ pip install -e .
 
 ## Quick Start
 
-### Basic DFT Calculation
+### Periodic Systems (PBC)
+
+#### Basic DFT Calculation
 
 ```python
 import jax
@@ -52,7 +54,7 @@ from hqc.pbc.lcao import make_lcao
 # System parameters
 n = 8  # number of electrons
 rs = 1.25  # Wigner-Seitz radius
-L = (4/3*jnp.pi*n)**(1/3)  # box size
+L = (4/3*jnp.pi*n)**(1/3) * rs  # box size
 basis = 'gth-dzv'
 
 # Generate random positions
@@ -67,7 +69,7 @@ mo_coeff, bands = lcao(xp)
 print("Band energies:", bands)
 ```
 
-### Finite Temperature Calculation
+#### Finite Temperature Calculation
 
 ```python
 from hqc.pbc.lcao import make_lcao
@@ -86,7 +88,7 @@ lcao = make_lcao(
 mo_coeff, bands = lcao(xp)
 ```
 
-### Potential Energy Surface
+#### Potential Energy Surface
 
 ```python
 from hqc.pbc.pes import make_pes
@@ -99,15 +101,76 @@ energy = pes(xp)
 print(f"Total energy: {energy} Ry")
 ```
 
+### Isolated Molecules (GTO)
+
+#### Hartree-Fock Calculation
+
+```python
+import jax.numpy as jnp
+from hqc.gto.solver import make_solver
+
+# H2 molecule
+atom_charges = jnp.array([1.0, 1.0])
+n_electrons = 2
+
+# Create solver (preprocessing: basis loading, occupation numbers, etc.)
+hf = make_solver(atom_charges, n_electrons, basis='gth-szv', use_jit=True)
+
+# Calculate for different geometries (efficient repeated calls)
+for distance in [1.0, 1.2, 1.4, 1.6, 1.8]:
+    positions = jnp.array([[0.0, 0.0, 0.0], [distance, 0.0, 0.0]])
+    result = hf(positions)
+    print(f"d={distance:.2f} Bohr: E={result['energy']:.6f} Ha")
+```
+
+#### Geometry Optimization Example
+
+```python
+from hqc.gto.solver import make_solver
+import jax
+
+# Setup
+atom_charges = jnp.array([1.0, 1.0])
+n_electrons = 2
+hf = make_solver(atom_charges, n_electrons, basis='gth-szv', use_jit=True)
+
+# Energy function for optimization
+def energy_fn(positions):
+    result = hf(positions)
+    return result['energy']
+
+# Compute gradient
+grad_fn = jax.grad(energy_fn)
+
+# Initial geometry
+positions = jnp.array([[0.0, 0.0, 0.0], [1.5, 0.0, 0.0]])
+
+# Get energy and gradient
+energy = energy_fn(positions)
+gradient = grad_fn(positions)
+print(f"Energy: {energy:.6f} Ha")
+print(f"Gradient:\n{gradient}")
+```
+
 ## Modules
 
-- **hqc.pbc.gto**: Gaussian-type orbital evaluation
+### Periodic Systems (hqc.pbc)
+
+- **hqc.pbc.gto**: Gaussian-type orbital evaluation for periodic systems
 - **hqc.pbc.lcao**: Hartree-Fock and DFT solvers (LCAO method)
 - **hqc.pbc.pes**: Potential energy surface calculations
 - **hqc.pbc.overlap**: Basis set overlap integrals
 - **hqc.pbc.slater**: Slater determinant for LCAO orbitals
 - **hqc.pbc.solver**: Low-level solver with detailed output (entropy, energy components)
 - **hqc.pbc.potential**: Electron-electron and electron-ion potentials
+
+### Isolated Molecules (hqc.gto)
+
+- **hqc.gto.solver**: High-level Hartree-Fock solver interface
+- **hqc.gto.integral**: Vectorized Gaussian integral evaluation
+- **hqc.gto.scf**: Self-consistent field iteration with DIIS
+- **hqc.gto.gto**: Atomic orbital evaluation for wavefunction reconstruction
+- **hqc.gto.boys**: Boys function for nuclear attraction integrals
 
 ## Basis Sets
 

@@ -2,6 +2,20 @@
 
 All notable changes to HQC will be documented in this file.
 
+## [0.1.12] - 2026-03-06
+
+Add `hqc.gto` module for isolated molecular systems (non-periodic):
+- `hqc.gto.solver`: High-level Hartree-Fock solver with optimized interface for repeated calls
+- `hqc.gto.integral`: Fully vectorized Gaussian integral evaluation for GPU acceleration
+- `hqc.gto.scf`: Self-consistent field iteration with DIIS acceleration
+- `hqc.gto.gto`: Atomic orbital evaluation for wavefunction reconstruction
+- `hqc.gto.boys`: Boys function implementation for nuclear attraction integrals
+
+Performance optimizations:
+- Precompute basis data and invariants in `make_solver` for efficient repeated calls
+- Fully vectorized integral computation: ~93,000x speedup with JIT compilation
+- Optimized for geometry optimization and molecular dynamics applications
+
 ## [0.1.11] - 2025
 
 Update the total energy in `hqc.pbc.pes` 'dev' mode returns from Eelec to Etot (add Vpp in E).

@@ -1,8 +1,5 @@
 __pycache__/
-doc/Makefile
-doc/note*
-doc/refs*
-doc/solver_cleanup_analysis.md
+doc/
 .pytest_cache/
 *.egg-info
 outputs/
