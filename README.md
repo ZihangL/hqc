@@ -174,57 +174,51 @@ print(f"Gradient:\n{gradient}")
 
 ## Basis Sets
 
-HQC supports multiple basis set formats:
+HQC supports multiple basis set families organized in separate directories:
 
-### GTH Basis Sets (CP2K format)
-
-GTH (Goedecker-Teter-Hutter) basis sets with GTH pseudopotentials from CP2K.
-
-Available basis sets:
-- `gth-szv`, `gth-dzv`, `gth-tzv` - Single, double, triple zeta valence
-- `gth-dzvp`, `gth-tzvp`, `gth-qzv3p` - Polarized basis sets
-- And many more in `hqc/basis/gth-raw/`
-
-**Citation:**
-```bibtex
-@article{VandeVondele2007,
-  title={Gaussian basis sets for accurate calculations on molecular systems in gas and condensed phases},
-  author={VandeVondele, Joost and Hutter, J{\"u}rg},
-  journal={The Journal of Chemical Physics},
-  volume={127},
-  pages={114105},
-  year={2007}
-}
-```
-
-### STO-nG Basis Sets
+### STO-nG Basis Sets (`hqc/basis/sto/`)
 
 Slater-type orbital basis sets from PySCF (Apache License 2.0):
 - `sto-3g` - Minimal basis set (3 Gaussians per STO)
 - `sto-6g` - Extended minimal basis (6 Gaussians per STO)
 
-**Citation:**
-```bibtex
-@article{Hehre1969,
-  title={Self-consistent molecular-orbital methods. I. Use of Gaussian expansions of Slater-type atomic orbitals},
-  author={Hehre, Warren J and Stewart, Robert F and Pople, John A},
-  journal={The Journal of Chemical Physics},
-  volume={51},
-  pages={2657--2664},
-  year={1969}
-}
-```
+**Citation:** Hehre et al., J. Chem. Phys. 51, 2657 (1969)
+
+### Pople Basis Sets (`hqc/basis/pople/`)
+
+Split-valence basis sets from PySCF (Apache License 2.0):
+- `3-21G` - Split-valence double-zeta
+- `6-31G` - Split-valence double-zeta
+- `6-311G` - Split-valence triple-zeta
+- `6-31Gs` - 6-31G with polarization (6-31G*)
+- `6-311Gs` - 6-311G with polarization (6-311G*)
+
+**Citation:** Hehre et al., J. Chem. Phys. 51, 2657 (1969)
+
+### GTH Basis Sets (`hqc/basis/gth-raw/`)
+
+GTH (Goedecker-Teter-Hutter) basis sets with GTH pseudopotentials from CP2K:
+- `gth-szv`, `gth-dzv`, `gth-tzv` - Single, double, triple zeta valence
+- `gth-dzvp`, `gth-tzvp`, `gth-qzv3p` - Polarized basis sets
+- And many more...
+
+**Citation:** VandeVondele & Hutter, J. Chem. Phys. 127, 114105 (2007)
 
 For detailed basis set sources and citations, see [hqc/basis/BASIS_SOURCES.md](hqc/basis/BASIS_SOURCES.md).
 
 ### Example Usage
 
 ```python
-# Using GTH basis
-hf_gth = make_solver(atom_charges, n_electrons, basis='gth-szv')
+from hqc.gto.solver import make_solver
+import jax.numpy as jnp
 
-# Using STO-3G basis
+atom_charges = jnp.array([1.0, 1.0])
+n_electrons = 2
+
+# Using different basis sets
 hf_sto = make_solver(atom_charges, n_electrons, basis='sto-3g')
+hf_pople = make_solver(atom_charges, n_electrons, basis='6-31G')
+hf_gth = make_solver(atom_charges, n_electrons, basis='gth-szv')
 ```
 
 ## Testing
