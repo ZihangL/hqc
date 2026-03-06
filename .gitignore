@@ -9,3 +9,6 @@ jax_xc/
 .claude/
 bench/
 test/*.md
+
+# Basis set raw files (downloaded from external sources)
+hqc/basis/*-raw.dat

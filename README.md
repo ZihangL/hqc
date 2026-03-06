@@ -174,24 +174,57 @@ print(f"Gradient:\n{gradient}")
 
 ## Basis Sets
 
-HQC uses CP2K-format basis sets with GTH pseudopotentials. Basis files are located in `hqc/basis/` and are automatically discovered by name.
+HQC supports multiple basis set formats:
 
-Available basis sets include:
-- `gth-szv`, `gth-dzv`, `gth-tzv`
-- `gth-dzvp`, `gth-tzvp`, `gth-qzv3p`
+### GTH Basis Sets (CP2K format)
+
+GTH (Goedecker-Teter-Hutter) basis sets with GTH pseudopotentials from CP2K.
+
+Available basis sets:
+- `gth-szv`, `gth-dzv`, `gth-tzv` - Single, double, triple zeta valence
+- `gth-dzvp`, `gth-tzvp`, `gth-qzv3p` - Polarized basis sets
 - And many more in `hqc/basis/gth-raw/`
 
-Example basis file format (`gth-dzv.dat`):
+**Citation:**
+```bibtex
+@article{VandeVondele2007,
+  title={Gaussian basis sets for accurate calculations on molecular systems in gas and condensed phases},
+  author={VandeVondele, Joost and Hutter, J{\"u}rg},
+  journal={The Journal of Chemical Physics},
+  volume={127},
+  pages={114105},
+  year={2007}
+}
 ```
-#BASIS SET
-H DZV-GTH
-  1
-  1  0  0  4  2
-        8.3744350009  -0.0283380461   0.0000000000
-        1.8058681460  -0.1333810052   0.0000000000
-        0.4852528328  -0.3995676063   0.0000000000
-        0.1658236932  -0.5531027541   1.0000000000
-#
+
+### STO-nG Basis Sets
+
+Slater-type orbital basis sets from PySCF (Apache License 2.0):
+- `sto-3g` - Minimal basis set (3 Gaussians per STO)
+- `sto-6g` - Extended minimal basis (6 Gaussians per STO)
+
+**Citation:**
+```bibtex
+@article{Hehre1969,
+  title={Self-consistent molecular-orbital methods. I. Use of Gaussian expansions of Slater-type atomic orbitals},
+  author={Hehre, Warren J and Stewart, Robert F and Pople, John A},
+  journal={The Journal of Chemical Physics},
+  volume={51},
+  pages={2657--2664},
+  year={1969}
+}
+```
+
+For detailed basis set sources and citations, see [hqc/basis/BASIS_SOURCES.md](hqc/basis/BASIS_SOURCES.md).
+
+### Example Usage
+
+```python
+# Using GTH basis
+hf_gth = make_solver(atom_charges, n_electrons, basis='gth-szv')
+
+# Using STO-3G basis
+hf_sto = make_solver(atom_charges, n_electrons, basis='sto-3g')
 ```
 
 ## Testing
